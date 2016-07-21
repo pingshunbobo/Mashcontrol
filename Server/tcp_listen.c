@@ -1,16 +1,17 @@
 /* include tcp_listen */
 #include	"unp.h"
+#include 	"pthread.h"
 
 int
 tcp_listen(const char *host, const char *serv, socklen_t *addrlenp)
 {
-	int				listenfd, n;
-	const int		on = 1;
+	int		n;
+	const int	on = 1;
 	struct addrinfo	hints, *res, *ressave;
 
 	bzero(&hints, sizeof(struct addrinfo));
 	hints.ai_flags = AI_PASSIVE;
-	hints.ai_family = AF_UNSPEC;
+	hints.ai_family = AF_INET;
 	hints.ai_socktype = SOCK_STREAM;
 
 	if ( (n = getaddrinfo(host, serv, &hints, &res)) != 0)

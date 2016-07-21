@@ -25,4 +25,4 @@ writen.o:	writen.c
 	gcc -c writen.c
 
 clean:
-	rm  -rf *.o
+	rm  -rf *.o *.a

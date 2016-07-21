@@ -7,5 +7,5 @@ typedef struct{
 
 Thread  *tptr;          /* array of Thread structures; calloc'ed */
 
-int                     listenfd, nthreads;
-socklen_t               addrlen;
+int         listenfd, nthreads;
+socklen_t   addrlen;

@@ -5,7 +5,7 @@
 void
 web_child(int sockfd)
 {
-	int			ntowrite;
+	int		ntowrite;
 	ssize_t		nread;
 	char		line[MAXLINE], result[MAXN];
 
@@ -17,7 +17,7 @@ web_child(int sockfd)
 		ntowrite = atol(line);
 		if ((ntowrite <= 0) || (ntowrite > MAXN))
 			err_quit("client request for %d bytes", ntowrite);
-
+		memset(result,65,ntowrite);
 		Writen(sockfd, result, ntowrite);
 	}
 }

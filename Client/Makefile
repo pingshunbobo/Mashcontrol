@@ -19,5 +19,7 @@ readline.o: readline.c
 
 readn.o: readn.c
 	${CC} -c readn.c
+
+CLEANFILES=*.o 
 clean:
 	rm -f ${PROGS} ${CLEANFILES}

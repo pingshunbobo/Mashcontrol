@@ -1,15 +1,15 @@
 CC=gcc
 LIBS=../lib/lib.a
 CFLAGS=-lpthread
-PROGS =	client 
+PROGS =	control 
 
 all:	${PROGS}
 
-client:	client.o tcp_connect.o readline.o readn.o	
-	${CC} ${CFLAGS} -o client client.o tcp_connect.o readline.o readn.o  ${LIBS}
+control: control.o tcp_connect.o readline.o readn.o	
+	 ${CC} ${CFLAGS} -o control control.o tcp_connect.o readline.o readn.o  ${LIBS}
 
-client.o: client.c
-	${CC} -c client.c
+control.o: control.c
+	${CC} -c control.c
 
 tcp_connect.o: tcp_connect.c
 	${CC} -c tcp_connect.c

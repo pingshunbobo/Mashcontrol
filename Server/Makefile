@@ -1,6 +1,6 @@
 CC=gcc
 LIBS=../lib/lib.a
-CFLAGS=-lpthread
+CFLAGS=-lpthread -g
 PROGS =	serv 
 
 all:	${PROGS}

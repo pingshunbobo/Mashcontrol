@@ -7,13 +7,14 @@ int main(int argc, char **argv)
 	int	fd, fdm;
 	pid_t	pid;
 	int	nbytes;
-	char 	slave_name[20];	
+	char 	slave_name[20];
+	fd_set	rset;	
 
 	char	request[MAXLINE];
 	char	reply[MAXN] = "ok!";
 
 	if (argc != 3)
-		err_quit("usage: client <hostname or IPaddr> <port> <#bytes/request>");
+		err_quit("usage: client <hostname or IPaddr> <port>");
 
 	fd = Tcp_connect(argv[1], argv[2]);
 	
@@ -21,12 +22,12 @@ int main(int argc, char **argv)
 	if (pid < 0)
 		printf("fork error");
 
-	else if (pid == 0) {		/* child */
-		//if (execvp(argv[optind], &argv[optind]) < 0)
-		//	printf("can't execute: %s", argv[optind]);
+	else if (pid == 0) {		/* child with pty slave! */
 		if( execl("/usr/bin/bash", "bash", NULL)  == -1)
 			printf("%s execve error!",strerror(errno));
 	}
+
+	FD_ZERO(&rset);
 	/*  parent process  */
 	while(1){
 		/*
@@ -35,8 +36,11 @@ int main(int argc, char **argv)
 			3,read from pty.
 			4,write to socket.
 		*/
-		if ( (nbytes = Readn(fd, request, 3)) < 0)
-			err_quit("server returned %d bytes", nbytes);
+		FD_SET(fd, &rset);
+		select (fd+1, &rset, NULL, NULL, NULL);
+
+		if ( (nbytes = read(fd, request, MAXN)) < 0)
+			printf("server returned %d bytes", nbytes);
 		printf("\n1,requested %d: %s\n", nbytes, request);
 
 		if (writen(fdm, request, nbytes) != nbytes)

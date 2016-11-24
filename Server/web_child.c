@@ -12,13 +12,15 @@ web_child(int sockfd)
 	fcntl(sockfd,F_SETFL, cflags|O_NONBLOCK);
 
 	for ( ; ; ) {
-		snprintf(request, sizeof(request), "ps\n");
-		Writen(sockfd, request, 3);
-		printf("request: %s",request);
-
+		nread = read(STDIN_FILENO,request,MAXN);
+		printf("1,%d  Request: %s\n",nread, request);
+		//Writen(sockfd, request, nread);
+		write(sockfd, request, nread);
+		printf("1, Request: %s\n",request);
+		sleep(1);
 		if ( (nread = read(sockfd, result, MAXN)) == 0)
 			continue;		/* connection closed by other end */
-		printf("result: %s\n",result);
+		printf("2, Return %d bytes: %s\n", nread, result);
 		sleep(1);
 	}
 }

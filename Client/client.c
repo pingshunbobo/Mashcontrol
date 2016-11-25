@@ -2,45 +2,53 @@
 
 #define	MAXN	16384		/* max #bytes to request from server */
 
-int
-main(int argc, char **argv)
+int main(int argc, char **argv)
 {
-	int		i, j, fd, nchildren, nloops, nbytes;
+	int	fd, fdm;
 	pid_t	pid;
-	ssize_t	n;
-	char	request[MAXLINE], reply[MAXN];
+	int	nbytes;
+	char 	slave_name[20];	
 
-	if (argc != 6)
-		err_quit("usage: client <hostname or IPaddr> <port> <#children> "
-				 "<#loops/child> <#bytes/request>");
+	char	request[MAXLINE];
+	char	reply[MAXN] = "ok!";
 
-	nchildren = atoi(argv[3]);
-	nloops = atoi(argv[4]);
-	nbytes = atoi(argv[5]);
-	snprintf(request, sizeof(request), "%d\n", nbytes); /* newline at end */
+	if (argc != 3)
+		err_quit("usage: client <hostname or IPaddr> <port> <#bytes/request>");
 
-	for (i = 0; i < nchildren; i++) {
-		if ( (pid = Fork()) == 0) {		/* child */
-			for (j = 0; j < nloops; j++) {
-				fd = Tcp_connect(argv[1], argv[2]);
+	fd = Tcp_connect(argv[1], argv[2]);
+	
+	pid = pty_fork(&fdm, slave_name, 20, NULL, NULL);
+	if (pid < 0)
+		printf("fork error");
 
-				Write(fd, request, strlen(request));
-
-				if ( (n = Readn(fd, reply, nbytes)) != nbytes)
-					err_quit("server returned %d bytes", n);
-
-				Close(fd);		/* TIME_WAIT on client, not server */
-			}
-			printf("child %d done\n", i);
-			exit(0);
-		}
-		/* parent loops around to fork() again */
+	else if (pid == 0) {		/* child */
+		//if (execvp(argv[optind], &argv[optind]) < 0)
+		//	printf("can't execute: %s", argv[optind]);
+		if( execl("/usr/bin/bash", "bash", NULL)  == -1)
+			printf("%s execve error!",strerror(errno));
 	}
+	/*  parent process  */
+	while(1){
+		/*
+			1,read from socket.
+			2,write to pty.
+			3,read from pty.
+			4,write to socket.
+		*/
+		if ( (nbytes = Readn(fd, request, 3)) < 0)
+			err_quit("server returned %d bytes", nbytes);
+		printf("\n1,requested %d: %s\n", nbytes, request);
 
-	while (wait(NULL) > 0)	/* now parent waits for all children */
-		;
-	if (errno != ECHILD)
-		err_sys("wait error");
+		if (writen(fdm, request, nbytes) != nbytes)
+			printf("writen error to master pty");
+
+		if ( (nbytes = read(fdm, reply, BUFFSIZE)) <= 0)
+			break;
+		printf("3,read %d bytes from fdm \n",nbytes);
+
+		Write(fd, reply, nbytes);
+	}
+	Close(fd);
 
 	exit(0);
 }

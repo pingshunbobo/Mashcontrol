@@ -50,7 +50,6 @@ pid_t pty_fork(int *ptyfdm, char *slave_name, int slave_namesz,
 
 	if((fdm = ptym_open(pts_name, sizeof(pts_name))) < 0)
 		printf("can`t open master pty : %s",pts_name);
-
 	if(slave_name != NULL){
 		strncpy(slave_name,pts_name,slave_namesz);
 		slave_name[slave_namesz - 1] = '\0';
@@ -62,6 +61,7 @@ pid_t pty_fork(int *ptyfdm, char *slave_name, int slave_namesz,
 		if(setsid() < 0)
 			printf("setsid error");
 
+//		printf("fork: pts_name: %s",pts_name);
 		if((fds = ptys_open(pts_name)) < 0)
 			printf("can`t open slave pty");
 		close(fdm);
@@ -76,16 +76,16 @@ pid_t pty_fork(int *ptyfdm, char *slave_name, int slave_namesz,
 		}
 
 		if(dup2(fds, STDIN_FILENO) != STDIN_FILENO)
-			printf("dup2 error to stdin");
+			printf("dup2 error to stdin! ");
 		if(dup2(fds, STDOUT_FILENO) != STDIN_FILENO)
-			printf("dup2 error to stdout");
+			printf("dup2 error to stdout! ");
 		if(dup2(fds, STDERR_FILENO) != STDIN_FILENO)
-			printf("dup2 error to stderr");
+			printf("dup2 error to stderr! ");
 		if(fds != STDIN_FILENO && fds != STDIN_FILENO && fds != STDIN_FILENO)
 			close(fds);
 		return 0;
 	}else{
 		*ptyfdm = fdm;
-		return (pid);
+		return pid;
 	}
 }

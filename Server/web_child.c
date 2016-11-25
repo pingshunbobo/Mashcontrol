@@ -5,19 +5,20 @@
 void
 web_child(int sockfd)
 {
-	int		ntowrite;
-	ssize_t		nread;
-	char		line[MAXLINE], result[MAXN];
+	int	ntowrite;
+	ssize_t	nread;
+	char	result[MAXN],request[MAXLINE];
+	int cflags = fcntl(sockfd,F_GETFL,0);
+	fcntl(sockfd,F_SETFL, cflags|O_NONBLOCK);
 
 	for ( ; ; ) {
-		if ( (nread = Readline(sockfd, line, MAXLINE)) == 0)
-			return;		/* connection closed by other end */
+		snprintf(request, sizeof(request), "ps\n");
+		Writen(sockfd, request, 3);
+		printf("request: %s",request);
 
-			/* 4line from client specifies #bytes to write back */
-		ntowrite = atol(line);
-		if ((ntowrite <= 0) || (ntowrite > MAXN))
-			err_quit("client request for %d bytes", ntowrite);
-		memset(result,65,ntowrite);
-		Writen(sockfd, result, ntowrite);
+		if ( (nread = read(sockfd, result, MAXN)) == 0)
+			continue;		/* connection closed by other end */
+		printf("result: %s\n",result);
+		sleep(1);
 	}
 }

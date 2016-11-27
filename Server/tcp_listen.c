@@ -1,11 +1,11 @@
 /* include tcp_listen */
 #include	"unp.h"
-#include 	"pthread.h"
 
 int
 tcp_listen(const char *host, const char *serv, socklen_t *addrlenp)
 {
 	int		n;
+	int 		listenfd;
 	const int	on = 1;
 	struct addrinfo	hints, *res, *ressave;
 

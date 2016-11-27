@@ -17,7 +17,7 @@
  */
 
 #include	"unp.h"
-
+#include <sys/epoll.h>
 
 void *
 Calloc(size_t n, size_t size)
@@ -254,4 +254,33 @@ Write(int fd, void *ptr, size_t nbytes)
 {
 	if (write(fd, ptr, nbytes) != nbytes)
 		err_sys("write error");
+}
+
+int
+Epoll_create()
+{
+	int epollfd;
+	if((epollfd = epoll_create( 10 )) < 0)
+		err_sys("Epoll create error");
+	return epollfd;
+}
+void
+Epoll_ctl(int epfd,int op,int fd,struct epoll_event *event)
+{
+	int ret;
+	if((ret = epoll_ctl(epfd, op, fd, event) < 0)){
+		err_sys("epoll ctl");
+	}
+	return;
+}
+int
+Epoll_wait(int epollfd,struct epoll_event* events,\
+		int maxevents,int timeout)
+{
+	int event_num;
+	if((event_num = epoll_wait(epollfd, events, maxevents, timeout)) < 0){
+		if(errno == EBADF | errno == EFAULT)
+		err_sys("Epoll_wait error");
+	}
+	return event_num;
 }

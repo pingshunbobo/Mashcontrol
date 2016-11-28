@@ -3,18 +3,27 @@
 #include	<stdbool.h>
 #include	<sys/epoll.h>
 
-#define  MAXN   65535
+#define MAXN   65535
 #define MAX_FD 65535
 #define MAX_EVENT_NUMBER 10000
+
+struct mashdata
+{
+	int selected;
+	int connfd;
+	int nrequest,nreply;
+	char request[MAXN];
+	char reply[MAXN];
+};
 
 
 void delevent(int epollfd, int fd);
 void modevent(int epollfd, int fd, int event);
-void addevent(int epollfd, int fd, int event);
+void addevent(int epollfd, int fd, bool one_shot);
 
 int main(int argc, char **argv)
 {
-	int	i;
+	int	i,j;
 	int	nread;
 	int 	number;
 	int 	epollfd;
@@ -22,18 +31,20 @@ int main(int argc, char **argv)
 	socklen_t addrlen;
 
 	char request[MAXN];
-	char result[MAXN];
 	struct epoll_event events[MAX_EVENT_NUMBER];
 
-	if (argc == 2)
+	struct mashdata * coredata = malloc(1024 * sizeof(struct mashdata));
+/*	if (argc == 2)
 		listenfd = Tcp_listen(NULL, argv[1], &addrlen);
 	else if (argc == 3)
 		listenfd = Tcp_listen(argv[1], argv[2], &addrlen);
 	else
 		err_quit("usage: serv [ <host> ] <port#> ");
-
+*/
+	listenfd = Tcp_listen(NULL, "8080", &addrlen);
 	epollfd = Epoll_create( 5 );
-	addevent(epollfd, listenfd, EPOLLIN);
+	addevent(epollfd, listenfd, false);
+	addevent(epollfd, STDIN_FILENO, false);
 
 	//loop process io events.
 	for ( ; ; ){
@@ -50,21 +61,43 @@ int main(int argc, char **argv)
 					continue;
 
 				/*connect success ,now go to initial the mash data struct*/
-				addevent(epollfd, connfd, EPOLLIN);
+				addevent(epollfd, connfd, false);
 				setnonblocking(connfd);
-			}else if( events[i].events & EPOLLIN ){
-				if ( (nread = Readline(sockfd, result, MAXN)) == 0){
-					close(sockfd);		/* connection closed by other end */
-					delevent(epollfd,sockfd);
+				coredata[connfd].selected = 1;
+				coredata[connfd].connfd = connfd;
+				coredata[connfd].nrequest = 0;
+				coredata[connfd].nreply = 0;
+				memset(coredata[connfd].request, '\0', MAXN);
+				memset(coredata[connfd].reply, '\0', MAXN);
+			}else if( sockfd == STDIN_FILENO ){
+				nread = read(sockfd, request, MAXN);
+				for(j=0; j < 1024; ++j){
+					if(coredata[j].selected){
+						coredata[j].nrequest = nread;
+						memcpy(coredata[j].request, request, nread);
+						modevent(epollfd, coredata[j].connfd, EPOLLOUT);
+					}
 				}
-				printf("2, Return %d bytes: %s\n", nread, result);
+			}else if( events[i].events & EPOLLIN ){
+				//if ( (nread = Readline(sockfd, coredata[sockfd].reply, MAXN)) == 0){
+				if ( (nread = read(sockfd, coredata[sockfd].reply, MAXN)) == 0){
+					printf("connectionclosed by other end");
+					delevent(epollfd,sockfd);
+					coredata[sockfd].selected = 0;
+					close(sockfd);		/* connection closed by other end */
+					continue;
+				}
+				//debug_printf("2, Return %d bytes.\n", nread);
+				Write(STDOUT_FILENO, coredata[sockfd].reply, nread);
 				fflush(stdout);
-				modevent(epollfd, sockfd, EPOLLOUT);
+				memset(coredata[sockfd].reply, '\0', MAXN);
+				modevent(epollfd, sockfd, EPOLLIN);
 			}else if( events[i].events & EPOLLOUT ){
+				Write(sockfd, coredata[sockfd].request, coredata[sockfd].nrequest);
 				modevent(epollfd, sockfd, EPOLLIN);
 			}else if( events[i].events & ( EPOLLRDHUP | EPOLLHUP | EPOLLERR ) ){
+				delevent(epollfd, sockfd);
 				close(sockfd);
-				delevent(epollfd,sockfd);
 			}else{
 				/*anything else happend*/
 			}
@@ -72,7 +105,7 @@ int main(int argc, char **argv)
 	}
 	close( epollfd );
 	close( listenfd );
-	return 0;
+	exit(1);
 }
 
 int setnonblocking( int fd )
@@ -83,12 +116,17 @@ int setnonblocking( int fd )
     return old_option;
 }
 
-void addevent( int epollfd, int fd, int ev )
+void addevent( int epollfd, int fd, bool one_shot )
 {
     struct epoll_event event;
     event.data.fd = fd;
-    event.events = ev | EPOLLONESHOT | EPOLLET | EPOLLRDHUP;
+    event.events = EPOLLIN | EPOLLET | EPOLLRDHUP;
+    if( one_shot )
+    {
+        //event.events |= EPOLLONESHOT;
+    }
     Epoll_ctl( epollfd, EPOLL_CTL_ADD, fd, &event );
+    setnonblocking( fd );
     return;
 }
 

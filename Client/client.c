@@ -66,7 +66,7 @@ int main(int argc, char **argv)
 				close(fd);
 				exit(1);
 			}
-			printf("\n1,requested %d bytes: %s\n", nbytes, request);
+			printf("1,requested %d bytes: %s\n", nbytes, request);
 
 			if (writen(fdm, request, nbytes) != nbytes)
 				printf("writen error to master pty");

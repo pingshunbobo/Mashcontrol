@@ -1,46 +1,67 @@
-#include	"unp.h"
-
+#include "unp.h"
+#include <sys/select.h>
+#include <termios.h>
+#include <errno.h>
 #define	MAXN	16384		/* max #bytes to request from server */
 
-int
-main(int argc, char **argv)
+static void set_noecho(int fd)		/* turn off echo (for slave pty) */
 {
-	int		i, j, fd, nchildren, nloops, nbytes;
-	pid_t	pid;
-	ssize_t	n;
-	char	request[MAXLINE], reply[MAXN];
+	struct termios	stermios;
 
-	if (argc != 6)
-		err_quit("usage: client <hostname or IPaddr> <port> <#children> "
-				 "<#loops/child> <#bytes/request>");
+	if (tcgetattr(fd, &stermios) < 0)
+		printf("tcgetattr error");
 
-	nchildren = atoi(argv[3]);
-	nloops = atoi(argv[4]);
-	nbytes = atoi(argv[5]);
-	snprintf(request, sizeof(request), "%d\n", nbytes); /* newline at end */
+	stermios.c_lflag &= ~(ECHO | ECHOE | ECHOK | ECHONL);
+	stermios.c_oflag &= ~(ONLCR);
+			/* also turn off NL to CR/NL mapping on output */
 
-	for (i = 0; i < nchildren; i++) {
-		if ( (pid = Fork()) == 0) {		/* child */
-			for (j = 0; j < nloops; j++) {
-				fd = Tcp_connect(argv[1], argv[2]);
+	if (tcsetattr(fd, TCSANOW, &stermios) < 0)
+		printf("tcsetattr error");
+}
 
-				Write(fd, request, strlen(request));
+int main(int argc, char **argv)
+{
+	int	sockfd;
+	int	nbytes;
+	fd_set	rset;	
 
-				if ( (n = Readn(fd, reply, nbytes)) != nbytes)
-					err_quit("server returned %d bytes", n);
+	char	request[MAXN];
+	char	reply[MAXN];
 
-				Close(fd);		/* TIME_WAIT on client, not server */
+	if (argc != 3)
+		err_quit("usage: client <hostname or IPaddr> <port>");
+	sockfd = Tcp_connect(argv[1], argv[2]);
+	
+
+	FD_ZERO(&rset);
+	/*  parent process  */
+	while(1){
+		FD_SET(sockfd, &rset);
+		FD_SET(STDIN_FILENO, &rset);
+		select (sockfd + 1, &rset, NULL, NULL, NULL);
+		if(FD_ISSET(sockfd,&rset)){
+			if ( (nbytes = Readline(sockfd, request, MAXN)) <= 0){
+				printf("server returned %d bytes error %s", nbytes,strerror(errno));
+				close(sockfd);
+				exit(1);
 			}
-			printf("child %d done\n", i);
-			exit(0);
-		}
-		/* parent loops around to fork() again */
-	}
+			printf("requested %d bytes: %s\n", nbytes, request);
 
-	while (wait(NULL) > 0)	/* now parent waits for all children */
-		;
-	if (errno != ECHILD)
-		err_sys("wait error");
+			if (writen(STDOUT_FILENO, request, nbytes) != nbytes)
+				printf("writen error to master pty");
+			memset(request,'\0', MAXN);
+		}
+		if(FD_ISSET(STDIN_FILENO,&rset)){
+			if ( (nbytes = read(STDIN_FILENO, reply, BUFFSIZE)) <= 0)
+				break;
+			printf("read %d bytes from stdin : %s\n", nbytes, reply);
+
+			Write(sockfd, reply, nbytes);
+			memset(reply,'\0', MAXN);
+			nbytes = 0;
+		}
+	}
+	Close(sockfd);
 
 	exit(0);
 }

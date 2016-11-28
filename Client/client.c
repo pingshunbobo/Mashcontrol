@@ -32,7 +32,7 @@ int main(int argc, char **argv)
 
 	if (argc != 3)
 		err_quit("usage: client <hostname or IPaddr> <port>");
-
+	//fork();
 	fd = Tcp_connect(argv[1], argv[2]);
 	
 	pid = pty_fork(&fdm, slave_name, 20, NULL, NULL);
@@ -44,7 +44,6 @@ int main(int argc, char **argv)
 		if( execl("/usr/bin/bash", "bash", NULL)  == -1)
 			printf("%s execve error!",strerror(errno));
 	}
-
 	int cflags = fcntl(fdm,F_GETFL,0);
 	fcntl(fdm,F_SETFL, cflags|O_NONBLOCK);
 
@@ -75,7 +74,7 @@ int main(int argc, char **argv)
 		if(FD_ISSET(fdm,&rset)){
 			if ( (nbytes = read(fdm, reply, BUFFSIZE)) <= 0)
 				break;
-			printf("3,read %d bytes from fdm : %s\n",nbytes, reply);
+			printf("3,pid: %d read %d bytes from fdm : %s\n",getpid(), nbytes, reply);
 
 			Write(fd, reply, nbytes);
 			memset(reply,'\0', MAXN);

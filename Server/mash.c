@@ -8,13 +8,14 @@
 #define MAX_EVENT_NUMBER 10000
 
 enum MASH_TYPE {MASH_CMD, MASH_DATA, MASH_UNKNOW};
-enum MASH_STATUS {CMD, INTERFACE, INTERFACE_VIEW};
+enum MASH_STATUS {CMD, INTERFACE, INTERFACEV};
 
 struct mashdata
 {
         int selected;
         int connfd;
 	int role;
+	enum MASH_STATUS status;
 	struct sockaddr_in client;
 	int result;
         int nrequest, nreply;
@@ -65,6 +66,18 @@ enum MASH_TYPE mash_type(char *reply)
 	return MASH_DATA;
 }
 
+int mash_selected(struct mashdata *data)
+{
+	int j;
+	int num = 0;
+	for(j = 0; j < 10; ++j){
+		if( data[j].selected ){
+			++num;
+		}
+	}
+	return num;
+}
+
 int mash_login(struct mashdata *data)
 {
 	char login_ip[] = "127.0.0.1";
@@ -73,6 +86,7 @@ int mash_login(struct mashdata *data)
 	if(!strncmp(inet_ntoa(data->client.sin_addr), login_ip, 9)){
 		/* Is admin */
 		data->role = 9;
+		data->status = CMD;
 		data->selected = 0;
 		return 1;
 	}
@@ -86,14 +100,40 @@ int mash_cmd(struct mashdata *data, int sockfd, int epollfd)
 	char * cmd = data[sockfd].reply + 8;
 	write(STDOUT_FILENO, data[sockfd].reply + 8, cmd_size);
 
-	/* send cmd to cliend*/
-	for(j = 0; j < 10; ++j){
-		if( data[j].selected ){
-			data[j].nrequest = cmd_size;
-			memcpy(data[j].request, cmd, cmd_size);
-			modevent(epollfd, j, EPOLLOUT);
+	if( CMD == data[sockfd].status ){
+		if(!strncmp(data[sockfd].request, "mashcli", 7)){
+			// 提示只能选中一个。
+			if( mash_selected(data) > 1){
+				data[sockfd].nrequest = 7;
+				memcpy(data[j].request, "Error", 6);
+			}else{
+				data[sockfd].status = INTERFACE;
+				data[sockfd].nrequest = 7;
+				memcpy(data[j].request, "mashcli", 7);
+			}
+			modevent(epollfd, sockfd, EPOLLOUT);
+			return 1;	
+		}
+		if(!strncmp(data[sockfd].request, "show", 4)){
+			//select
+		}
+		if(!strncmp(data[sockfd].request, "select", 6)){
+			//select
+		}
+		if(!strncmp(data[sockfd].request, "unselect", 6)){
+			//select
+		}
+	}else{
+		/* send cmd to cliend*/
+		for(j = 0; j < 10; ++j){
+			if( data[j].selected ){
+				data[j].nrequest = cmd_size;
+				memcpy(data[j].request, cmd, cmd_size);
+				modevent(epollfd, j, EPOLLOUT);
+			}
 		}
 	}
+
 	return cmd_size;
 
 }
@@ -106,6 +146,17 @@ int mash_console(struct mashdata *data, int sockfd, int epollfd)
 	}else
 		mash_close(data, sockfd);
 	return 0;
+}
+
+void mash_display(struct mashdata *data, int selected)
+{
+	int i;
+	for(i = 0; i < 10; ++i){
+		if( data[i].selected ){
+			printf("%d %s\n", i, inet_ntoa(data[i].client.sin_addr));
+		}
+	}
+
 }
 
 int mash_init(struct mashdata *data, int sockfd, struct sockaddr_in client_addr)

@@ -74,29 +74,30 @@ int mash_login(struct mashdata *data)
 	return 0;
 }
 
-int mash_cmd(struct mashdata *data, int sockfd)
+int mash_cmd(struct mashdata *data, int sockfd, int epollfd)
 {
 	int j;
 	int cmd_size = data[sockfd].nreply - 8;
 	char * cmd = data[sockfd].reply + 8;
-	write(STDOUT_FILENO, data[sockfd].reply, cmd_size);
+	write(STDOUT_FILENO, data[sockfd].reply + 8, cmd_size);
 
 	/* send cmd to cliend*/
-	for(j = 0; j < 1024; ++j){
-		if(data[j].selected){
+	for(j = 0; j < 10; ++j){
+		if( data[j].selected ){
 			data[j].nrequest = cmd_size;
 			memcpy(data[j].request, cmd, cmd_size);
+			modevent(epollfd, j, EPOLLOUT);
 		}
 	}
 	return cmd_size;
 
 }
 
-int mash_console(struct mashdata *data, int sockfd)
+int mash_console(struct mashdata *data, int sockfd, int epollfd)
 {
 	/* login ok! */
 	if(mash_login(data + sockfd)){
-		mash_cmd(data, sockfd);
+		mash_cmd(data, sockfd, epollfd);
 	}else
 		mash_close(data, sockfd);
 	return 0;
@@ -115,16 +116,22 @@ int mash_init(struct mashdata *data, int sockfd, struct sockaddr_in client_addr)
 	memset(data[sockfd].reply, '\0', MAXN);
 }
 
-int mash_process(struct mashdata *data, int sockfd)
+int mash_process(struct mashdata *data, int sockfd, int epollfd)
 {
-	int nread = data[sockfd].nreply;
+	int i;
 	/* Check Magic number from data.reply */
 	if(is_mashcon(data[sockfd].reply)){
-		mash_console(data, sockfd);
+		mash_console(data, sockfd, epollfd);
 	}else{
-		Write(STDOUT_FILENO, data[sockfd].reply, nread);
+		int nbytes = data[sockfd].nreply;
+		//return reply to admin console
+		for(i = 0; i < 10; ++i){
+			if( 9 == data[i].role ){
+				Write(i, data[sockfd].reply, nbytes);
+			}
+		}
+		Write(STDOUT_FILENO, data[sockfd].reply, nbytes);
         	fflush(stdout);
-        	memset(data[sockfd].reply, '\0', MAXN);
 	}
 	return 0;
 }
@@ -132,6 +139,7 @@ int mash_process(struct mashdata *data, int sockfd)
 int mash_read(struct mashdata *data, int sockfd)
 {
 	int nread;
+        memset(data[sockfd].reply, '\0', MAXN);
 	//if ( (nread = Readline(sockfd, data[sockfd].reply, MAXN)) == 0){
 	if ( (nread = read(sockfd, data[sockfd].reply, MAXN)) == 0){
 		printf("connectionclosed by other end");

@@ -31,32 +31,36 @@ int main(int argc, char **argv)
 	if (argc != 3)
 		err_quit("usage: client <hostname or IPaddr> <port>");
 	sockfd = Tcp_connect(argv[1], argv[2]);
-	
+	//set_noecho(sockfd);	
 
 	FD_ZERO(&rset);
 	/*  parent process  */
 	while(1){
+		//printf("Mashcmd#");
+		fflush(stdout);
 		FD_SET(sockfd, &rset);
 		FD_SET(STDIN_FILENO, &rset);
 		select (sockfd + 1, &rset, NULL, NULL, NULL);
 		if(FD_ISSET(sockfd,&rset)){
-			if ( (nbytes = Readline(sockfd, request, MAXN)) <= 0){
+			//if ( (nbytes = Readline(sockfd, reply, MAXN)) <= 0){
+			if ( (nbytes = read(sockfd, reply, MAXN)) <= 0){
 				printf("server returned %d bytes error %s", nbytes,strerror(errno));
 				close(sockfd);
 				exit(1);
 			}
-			printf("requested %d bytes: %s\n", nbytes, request);
+			//printf("requested %d bytes: %s\n", nbytes, request);
 
-			if (writen(STDOUT_FILENO, request, nbytes) != nbytes)
+			if (writen(STDOUT_FILENO, reply, nbytes) != nbytes)
 				printf("writen error to master pty");
 			memset(request,'\0', MAXN);
 		}
 		if(FD_ISSET(STDIN_FILENO,&rset)){
-			if ( (nbytes = read(STDIN_FILENO, reply, BUFFSIZE)) <= 0)
+			memcpy(request, "Mashcmd:", 8);
+			if ( (nbytes = read(STDIN_FILENO, request + 8, BUFFSIZE)) <= 0)
 				break;
-			printf("read %d bytes from stdin : %s\n", nbytes, reply);
+			//printf("read %d bytes from stdin : %s\n", nbytes, reply);
 
-			Write(sockfd, reply, nbytes);
+			Write(sockfd, request, nbytes + 8);
 			memset(reply,'\0', MAXN);
 			nbytes = 0;
 		}

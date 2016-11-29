@@ -23,6 +23,7 @@ void modevent(int epollfd, int fd, int ev);
 void delevent(int epollfd, int fd);
 
 int mash_init(struct mashdata *data, int sockfd, struct sockaddr_in client);
+int mash_process(struct mashdata *data, int sockfd, int epollfd);
 int mash_read(struct mashdata *data, int sockfd);
 int mash_write(struct mashdata *data, int sockfd);
 int mash_close(struct mashdata *data, int sockfd);

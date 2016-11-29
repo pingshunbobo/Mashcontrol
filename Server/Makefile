@@ -1,6 +1,6 @@
 CC=gcc
 LIBS=../lib/lib.a
-CFLAGS= -g3 
+CFLAGS= -g 
 PROGS =	serv 
 
 all:	${PROGS}

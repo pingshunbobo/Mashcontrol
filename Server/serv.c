@@ -16,8 +16,9 @@ int main(int argc, char **argv)
 	char request[MAXN];
 	struct epoll_event events[MAX_EVENT_NUMBER];
 
-	struct mashdata * coredata = malloc(1024 * sizeof(struct mashdata));
-	listenfd = Tcp_listen("192.168.78.154", "8080", &addrlen);
+	struct mashdata * coredata = \
+		malloc(1024 * sizeof(struct mashdata));
+	listenfd = Tcp_listen(NULL, "8080", &addrlen);
 	epollfd = Epoll_create( 5 );
 	addevent(epollfd, listenfd, false);
 	addevent(epollfd, STDIN_FILENO, false);
@@ -37,7 +38,7 @@ int main(int argc, char **argv)
 					continue;
 
 				/*connect success ,now go to initial the mash data struct*/
-				mash_init(coredata, connfd);
+				mash_init(coredata, connfd, client_address);
 				addevent(epollfd, connfd, false);
 			}else if( sockfd == STDIN_FILENO ){
 				nread = read(sockfd, request, MAXN);
@@ -54,6 +55,7 @@ int main(int argc, char **argv)
 					mash_close(coredata, sockfd);
 					continue;
 				}
+				mash_process(coredata, sockfd);
 				modevent(epollfd, sockfd, EPOLLIN);
 			}else if( events[i].events & EPOLLOUT ){
 				mash_write(coredata, sockfd);

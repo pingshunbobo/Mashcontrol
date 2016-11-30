@@ -28,16 +28,15 @@ int main(int argc, char **argv)
 	char	request[MAXN];
 	char	reply[MAXN];
 
-	if (argc != 3)
-		err_quit("usage: client <hostname or IPaddr> <port>");
-	sockfd = Tcp_connect(argv[1], argv[2]);
+	//if (argc != 3)
+	//	err_quit("usage: client <hostname or IPaddr> <port>");
+	//sockfd = Tcp_connect(argv[1], argv[2]);
+	sockfd = Tcp_connect("127.0.0.1", "8080");
 	//set_noecho(sockfd);	
 
 	FD_ZERO(&rset);
 	/*  parent process  */
 	while(1){
-		//printf("Mashcmd#");
-		fflush(stdout);
 		FD_SET(sockfd, &rset);
 		FD_SET(STDIN_FILENO, &rset);
 		select (sockfd + 1, &rset, NULL, NULL, NULL);
@@ -58,7 +57,7 @@ int main(int argc, char **argv)
 			memcpy(request, "Mashcmd:", 8);
 			if ( (nbytes = read(STDIN_FILENO, request + 8, BUFFSIZE)) <= 0)
 				break;
-			//printf("read %d bytes from stdin : %s\n", nbytes, reply);
+			printf("read %d bytes from stdin : %s\n", nbytes, reply);
 
 			Write(sockfd, request, nbytes + 8);
 			memset(reply,'\0', MAXN);

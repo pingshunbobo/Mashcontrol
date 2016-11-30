@@ -7,6 +7,9 @@
 #define MAX_FD 65535
 #define MAX_EVENT_NUMBER 10000
 
+enum MASH_TYPE {MASH_CMD, MASH_DATA, MASH_UNKNOW};
+enum MASH_STATUS {CMD, INTERFACE, INTERFACE_VIEW};
+
 struct mashdata
 {
         int selected;
@@ -17,6 +20,7 @@ struct mashdata
         int nrequest, nreply;
         char request[MAXN];
         char reply[MAXN];
+	void * data;
 };
 
 int setnonblocking( int fd )
@@ -54,11 +58,11 @@ void delevent(int epollfd, int fd)
     Epoll_ctl( epollfd, EPOLL_CTL_DEL, fd, 0 );
 }
 
-int is_mashcon(char * reply)
+enum MASH_TYPE mash_type(char *reply)
 {
 	if(!strncmp(reply, "Mashcmd:", 8))
-		return 1;
-	return 0;
+                return MASH_CMD;
+	return MASH_DATA;
 }
 
 int mash_login(struct mashdata *data)
@@ -69,6 +73,7 @@ int mash_login(struct mashdata *data)
 	if(!strncmp(inet_ntoa(data->client.sin_addr), login_ip, 9)){
 		/* Is admin */
 		data->role = 9;
+		data->selected = 0;
 		return 1;
 	}
 	return 0;
@@ -119,19 +124,27 @@ int mash_init(struct mashdata *data, int sockfd, struct sockaddr_in client_addr)
 int mash_process(struct mashdata *data, int sockfd, int epollfd)
 {
 	int i;
+	int nbytes;
 	/* Check Magic number from data.reply */
-	if(is_mashcon(data[sockfd].reply)){
-		mash_console(data, sockfd, epollfd);
-	}else{
-		int nbytes = data[sockfd].nreply;
-		//return reply to admin console
-		for(i = 0; i < 10; ++i){
-			if( 9 == data[i].role ){
-				Write(i, data[sockfd].reply, nbytes);
+	switch( mash_type(data[sockfd].reply) ){
+		case (MASH_CMD):
+			mash_console(data, sockfd, epollfd);
+			break;
+		case (MASH_DATA):
+			nbytes = data[sockfd].nreply;
+			//return reply to admin console
+			for(i = 0; i < 10; ++i){
+				if( 9 == data[i].role ){
+					Write(data[i].connfd, data[sockfd].reply, nbytes);
+				}
 			}
-		}
-		Write(STDOUT_FILENO, data[sockfd].reply, nbytes);
-        	fflush(stdout);
+			Write(STDOUT_FILENO, data[sockfd].reply, nbytes);
+        		fflush(stdout);
+
+			break;
+		default:
+			printf("unknow client");
+			mash_close(sockfd);
 	}
 	return 0;
 }
@@ -145,7 +158,6 @@ int mash_read(struct mashdata *data, int sockfd)
 		printf("connectionclosed by other end");
 		return 0;
 	}
-	//debug_printf("2, Return %d bytes.\n", nread);
 	data[sockfd].nreply = nread;
 	return nread;
 }

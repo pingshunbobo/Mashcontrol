@@ -18,7 +18,7 @@ int main(int argc, char **argv)
 
 	struct mashdata * coredata = \
 		malloc(1024 * sizeof(struct mashdata));
-	listenfd = Tcp_listen(NULL, "8080", &addrlen);
+	listenfd = Tcp_listen(NULL, "9367", &addrlen);
 	epollfd = Epoll_create( 5 );
 	addevent(epollfd, listenfd, false);
 	addevent(epollfd, STDIN_FILENO, false);

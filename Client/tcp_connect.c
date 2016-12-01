@@ -4,7 +4,7 @@
 int
 tcp_connect(const char *host, const char *serv)
 {
-	int				sockfd, n;
+	int		sockfd, n;
 	struct addrinfo	hints, *res, *ressave;
 
 	bzero(&hints, sizeof(struct addrinfo));
@@ -17,6 +17,7 @@ tcp_connect(const char *host, const char *serv)
 	ressave = res;
 
 	do {
+	connected:
 		sockfd = socket(res->ai_family, res->ai_socktype, res->ai_protocol);
 		if (sockfd < 0)
 			continue;	/* ignore this one */
@@ -25,10 +26,12 @@ tcp_connect(const char *host, const char *serv)
 			break;		/* success */
 
 		Close(sockfd);	/* ignore this one */
+		sleep(5);
+		goto connected;
 	} while ( (res = res->ai_next) != NULL);
 
 	if (res == NULL)	/* errno set from final connect() */
-		err_sys("tcp_connect error for %s, %s", host, serv);
+		err_ret("tcp_connect error for %s, %s", host, serv);
 
 	freeaddrinfo(ressave);
 

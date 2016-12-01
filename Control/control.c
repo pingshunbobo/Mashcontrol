@@ -31,7 +31,7 @@ int main(int argc, char **argv)
 	//if (argc != 3)
 	//	err_quit("usage: client <hostname or IPaddr> <port>");
 	//sockfd = Tcp_connect(argv[1], argv[2]);
-	sockfd = Tcp_connect("127.0.0.1", "8080");
+	sockfd = Tcp_connect("127.0.0.1", "9367");
 
 	FD_ZERO(&rset);
 	/*  parent process  */

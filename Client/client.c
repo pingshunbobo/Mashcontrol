@@ -1,8 +1,14 @@
 #include	"unp.h"
 #include <sys/select.h>
+#include <sys/types.h>
+#include <signal.h>
 #include <termios.h>
 #include <errno.h>
 #define	MAXN	16384		/* max #bytes to request from server */
+
+
+void sig_child(int signo);
+void server(char *host, char *port);
 
 static void set_noecho(int fd)		/* turn off echo (for slave pty) */
 {
@@ -19,7 +25,14 @@ static void set_noecho(int fd)		/* turn off echo (for slave pty) */
 		printf("tcsetattr error");
 }
 
+
 int main(int argc, char **argv)
+{
+	signal(SIGCHLD, sig_child);
+	server("127.0.0.1", "9367");
+}
+
+void server(char *host, char *port)
 {
 	int	fd, fdm;
 	int	nbytes;
@@ -31,10 +44,8 @@ int main(int argc, char **argv)
 	char	request[MAXN];
 	char	reply[MAXN];
 
-	if (argc != 3)
-		err_quit("usage: client <hostname or IPaddr> <port>");
-	fd = Tcp_connect(argv[1], argv[2]);
-	
+start:
+	fd = Tcp_connect(host, port);
 	pid = pty_fork(&fdm, slave_name, 20, NULL, NULL);
 	if (pid < 0)
 		printf("fork error");
@@ -54,16 +65,15 @@ int main(int argc, char **argv)
 		FD_SET(fdm, &rset);
 		select (fdm + 1, &rset, NULL, NULL, NULL);
 		if(FD_ISSET(fd,&rset)){
+			memset(request, '\0', MAXN);
 			if ( (nbytes = Readline(fd, request, MAXN)) <= 0){
 				printf("server returned %d bytes error %s", nbytes, strerror(errno));
-				close(fd);
-				exit(1);
+				goto restart;
 			}
 			printf("requested %d bytes: %s\n", nbytes, request);
 
 			if (writen(fdm, request, nbytes) != nbytes)
 				printf("writen error to master pty");
-			memset(request, '\0', MAXN);
 		}
 		if(FD_ISSET(fdm,&rset)){
 			memset(reply, '\0', MAXN);
@@ -74,7 +84,20 @@ int main(int argc, char **argv)
 			Write(fd, reply, nbytes);
 		}
 	}
-	Close(fd);
 
-	exit(0);
+restart:
+	Close(fd);
+	sleep(2);
+	printf("restart\n");
+	goto start;
+}
+
+void sig_child(int signo)
+{
+	pid_t pid;
+	int stat;
+	pid = wait(&stat);
+	printf("child %d terminated\n", pid);
+	sleep(5);
+	server("127.0.0.1", "9367");
 }

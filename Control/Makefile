@@ -1,5 +1,5 @@
 CC=gcc
-LIBS=../lib/lib.a | tee text.txt
+LIBS=../lib/lib.a
 CFLAGS=
 PROGS =	control 
 

@@ -8,7 +8,7 @@
 #define MAX_EVENT_NUMBER 10000
 
 enum MASH_TYPE {MASH_CMD, MASH_DATA, MASH_UNKNOW};
-enum MASH_STATUS {CMD, INTERFACE, INTERFACEV};
+enum MASH_STATUS {CMD, CLI, INTERFACE};
 
 struct mashdata
 {
@@ -66,6 +66,22 @@ enum MASH_TYPE mash_type(char *reply)
 	return MASH_DATA;
 }
 
+void mash_display(struct mashdata *data, int selected)
+{
+	int i;
+	for(i = 0; i < 10; ++i){
+		if( data[i].selected & selected ){
+			printf("%d %s\n", i, inet_ntoa(data[i].client.sin_addr));
+		}else
+			printf("%d %s\n", i, inet_ntoa(data[i].client.sin_addr));
+	}
+}
+
+void mash_show(struct mashdata *data)
+{
+	return;
+}
+
 int mash_selected(struct mashdata *data)
 {
 	int j;
@@ -76,6 +92,22 @@ int mash_selected(struct mashdata *data)
 		}
 	}
 	return num;
+}
+
+void mash_help(struct mashdata *data, int sockfd)
+{
+	int nbytes;
+	nbytes = snprintf(data[sockfd].reply, 1024,\
+		"Error: select more than one interface.\n \
+	mashcmd  	basic command mode.\n \
+	mashcli  	command mode, sent cmd to all the selected slave.\n \
+	interface  	inter interactive mode with the selected slave.\n \
+	select  	select one slave.\n \
+	unselect  	unselect one slave.\n \
+	display  	show client list.\n \
+	show  		show all the client run result.\n \
+	help  		show this page.\n"); 
+	Write(sockfd, data[sockfd].reply, nbytes);
 }
 
 int mash_login(struct mashdata *data)
@@ -96,35 +128,63 @@ int mash_login(struct mashdata *data)
 int mash_cmd(struct mashdata *data, int sockfd, int epollfd)
 {
 	int j;
+	int nbytes;
 	int cmd_size = data[sockfd].nreply - 8;
 	char * cmd = data[sockfd].reply + 8;
-	write(STDOUT_FILENO, data[sockfd].reply + 8, cmd_size);
 
-	if( CMD == data[sockfd].status ){
-		if(!strncmp(data[sockfd].request, "mashcli", 7)){
-			// 提示只能选中一个。
-			if( mash_selected(data) > 1){
-				data[sockfd].nrequest = 7;
-				memcpy(data[j].request, "Error", 6);
-			}else{
-				data[sockfd].status = INTERFACE;
-				data[sockfd].nrequest = 7;
-				memcpy(data[j].request, "mashcli", 7);
-			}
-			modevent(epollfd, sockfd, EPOLLOUT);
-			return 1;	
+	/* check mashcmd command */
+	if(!strncmp(cmd, "mashcmd", 7)){
+		data[sockfd].status = CMD;
+		write(sockfd, "mashcmd%", 8);
+		return 1;
+	}
+	if(!strncmp(cmd, "mashcli", 7)){
+		if( mash_selected( data ) < 1){
+			nbytes = snprintf(data[sockfd].reply, 1024,\
+				"Error: select more than one interface.\r\n");
+			Write(sockfd, data[sockfd].reply, nbytes);
+			Write(sockfd, "mashcli#", 8);
+		}else
+			data[sockfd].status = CLI;
+		return 1;
+	}
+	if(!strncmp(cmd, "interface", 9)){
+		if( mash_selected( data ) != 1){
+			nbytes = snprintf(data[sockfd].reply, 1024,\
+				"Error: select than one interface.\r\n");
+			Write(sockfd, data[sockfd].reply, nbytes);
+		}else{
+			data[sockfd].status = INTERFACE;
+			write(sockfd, "interface#", 10);
 		}
-		if(!strncmp(data[sockfd].request, "show", 4)){
-			//select
-		}
-		if(!strncmp(data[sockfd].request, "select", 6)){
-			//select
-		}
-		if(!strncmp(data[sockfd].request, "unselect", 6)){
-			//select
-		}
-	}else{
-		/* send cmd to cliend*/
+		return 1;
+	}
+	if(!strncmp(cmd, "display", 8)){
+		mash_display(data, 1);
+		return 1;
+	}
+	if(!strncmp(cmd, "show", 4)){
+		mash_show(data);
+		write(sockfd, "show", 4);
+		return 1;
+	}
+	if(!strncmp(cmd, "select", 6)){
+		write(sockfd, "select", 6);
+		return 1;
+	}
+	if(!strncmp(cmd, "unselect", 8)){
+		write(sockfd, "unselect", 8);
+		return 1;
+	}
+	if(!strncmp(cmd, "help", 4)){
+		mash_help(data,sockfd);
+		return 1;
+	}
+
+	/* On CLI status sent command to client. */
+	if(CLI == data[sockfd].status | \
+		INTERFACE == data[sockfd].status){
+		/* unknow cmd, send cmd to cliend*/
 		for(j = 0; j < 10; ++j){
 			if( data[j].selected ){
 				data[j].nrequest = cmd_size;
@@ -132,10 +192,21 @@ int mash_cmd(struct mashdata *data, int sockfd, int epollfd)
 				modevent(epollfd, j, EPOLLOUT);
 			}
 		}
+		if(CLI == data[sockfd].status)
+			write(sockfd, "mashcli#", 8);
+		return cmd_size;
 	}
 
-	return cmd_size;
-
+	if(!strncmp(cmd, "\n", 1)){
+		write(sockfd, "mashcmd%", 8);
+		return 1;
+	}else{
+		/* unknow cmd info sent to controls */
+		nbytes = snprintf(data[sockfd].reply, 1024,\
+			"Error: unknow mash cmd!.\r\n");
+		Write(sockfd, data[sockfd].reply, nbytes);
+	}
+	return 0;
 }
 
 int mash_console(struct mashdata *data, int sockfd, int epollfd)
@@ -146,17 +217,6 @@ int mash_console(struct mashdata *data, int sockfd, int epollfd)
 	}else
 		mash_close(data, sockfd);
 	return 0;
-}
-
-void mash_display(struct mashdata *data, int selected)
-{
-	int i;
-	for(i = 0; i < 10; ++i){
-		if( data[i].selected ){
-			printf("%d %s\n", i, inet_ntoa(data[i].client.sin_addr));
-		}
-	}
-
 }
 
 int mash_init(struct mashdata *data, int sockfd, struct sockaddr_in client_addr)
@@ -185,7 +245,7 @@ int mash_process(struct mashdata *data, int sockfd, int epollfd)
 			nbytes = data[sockfd].nreply;
 			//return reply to admin console
 			for(i = 0; i < 10; ++i){
-				if( 9 == data[i].role ){
+				if( 9 == data[i].role && data[i].status == INTERFACE ){
 					Write(data[i].connfd, data[sockfd].reply, nbytes);
 				}
 			}

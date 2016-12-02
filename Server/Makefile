@@ -5,7 +5,7 @@ PROGS =	serv
 
 all:	${PROGS}
 
-serv:	serv.o mash.o tcp_listen.o
+serv:	serv.o mash.o tcp_listen.o ${LIBS}
 	${CC} ${CFLAGS}  -o serv serv.o mash.o tcp_listen.o ${LIBS}
 
 mash.o: mash.c

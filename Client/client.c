@@ -1,4 +1,4 @@
-#include	"unp.h"
+#include "unp.h"
 #include <sys/select.h>
 #include <sys/types.h>
 #include <signal.h>
@@ -9,6 +9,14 @@
 
 void sig_child(int signo);
 void server(char *host, char *port);
+
+int setnonblocking(int fd)
+{
+    int old_option = fcntl( fd, F_GETFL );
+    int new_option = old_option | O_NONBLOCK;
+    Fcntl( fd, F_SETFL, new_option );
+    return old_option;
+}
 
 static void set_noecho(int fd)		/* turn off echo (for slave pty) */
 {
@@ -28,13 +36,7 @@ static void set_noecho(int fd)		/* turn off echo (for slave pty) */
 
 int main(int argc, char **argv)
 {
-	signal(SIGCHLD, sig_child);
-	server("127.0.0.1", "9367");
-}
-
-void server(char *host, char *port)
-{
-	int	fd, fdm;
+	int	sockfd, fdm;
 	int	nbytes;
 	int	logined;
 	char 	slave_name[20];
@@ -44,8 +46,21 @@ void server(char *host, char *port)
 	char	request[MAXN];
 	char	reply[MAXN];
 
+	/* daemon_init */
+	signal(SIGCHLD, sig_child);
+	signal(SIGINT, SIG_IGN);
+
+	if(Fork() != 0)
+		exit(0);
+	setsid();
+
+	chdir("~");
+	umask(0);
+	/* end daemon_init */
+	
+
+
 start:
-	fd = Tcp_connect(host, port);
 	pid = pty_fork(&fdm, slave_name, 20, NULL, NULL);
 	if (pid < 0)
 		printf("fork error");
@@ -58,37 +73,49 @@ start:
 	int cflags = fcntl(fdm,F_GETFL,0);
 	fcntl(fdm,F_SETFL, cflags|O_NONBLOCK);
 
+	close(0);
+	close(1);
+	close(2);
+	sockfd = Tcp_connect("127.0.0.1", "9367");
+	setnonblocking(sockfd);
 	FD_ZERO(&rset);
 	/*  parent process  */
 	while(1){
-		FD_SET(fd, &rset);
+		FD_SET(sockfd, &rset);
 		FD_SET(fdm, &rset);
 		select (fdm + 1, &rset, NULL, NULL, NULL);
-		if(FD_ISSET(fd,&rset)){
+		if(FD_ISSET(sockfd, &rset)){
 			memset(request, '\0', MAXN);
-			if ( (nbytes = Readline(fd, request, MAXN)) <= 0){
-				printf("server returned %d bytes error %s", nbytes, strerror(errno));
+			nbytes = read(sockfd, request, MAXN);
+			if ( nbytes < 0){
+				/* error! */
+				continue;
+			}
+			if ( nbytes == 0){
+				//printf("server returned %d bytes error %s", nbytes, strerror(errno));
 				goto restart;
 			}
-			printf("requested %d bytes: %s\n", nbytes, request);
 
 			if (writen(fdm, request, nbytes) != nbytes)
 				printf("writen error to master pty");
 		}
-		if(FD_ISSET(fdm,&rset)){
+		if(FD_ISSET(fdm, &rset)){
 			memset(reply, '\0', MAXN);
 			if ( (nbytes = read(fdm, reply, BUFFSIZE)) <= 0)
-				break;
-			printf("pid: %d read %d bytes from fdm : %s\n",getpid(), nbytes, reply);
-			fflush(stdout);
-			Write(fd, reply, nbytes);
+				goto restart;
+			nbytes = write(sockfd, reply, nbytes);
+			if( nbytes < 0 ){
+				if (errno == EAGAIN)
+					continue;
+				else
+					goto restart;
+			}
 		}
 	}
 
 restart:
-	Close(fd);
-	sleep(2);
-	printf("restart\n");
+	Close(sockfd);
+	sleep(10);
 	goto start;
 }
 
@@ -97,7 +124,4 @@ void sig_child(int signo)
 	pid_t pid;
 	int stat;
 	pid = wait(&stat);
-	printf("child %d terminated\n", pid);
-	sleep(5);
-	server("127.0.0.1", "9367");
 }

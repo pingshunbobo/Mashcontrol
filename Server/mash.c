@@ -264,7 +264,6 @@ int mash_read(struct mashdata *data, int sockfd)
 {
 	int nread;
         memset(data[sockfd].reply, '\0', MAXN);
-	//if ( (nread = Readline(sockfd, data[sockfd].reply, MAXN)) == 0){
 	if ( (nread = read(sockfd, data[sockfd].reply, MAXN)) == 0){
 		printf("connectionclosed by other end");
 		return 0;

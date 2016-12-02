@@ -252,8 +252,16 @@ Waitpid(pid_t pid, int *iptr, int options)
 void
 Write(int fd, void *ptr, size_t nbytes)
 {
-	if (write(fd, ptr, nbytes) != nbytes)
-		err_sys("write error");
+	int nwrite = 0;
+	for(;;){
+		if ((nwrite += write(fd, ptr + nwrite, nbytes - nwrite)) != nbytes){
+			if(errno == EINTR | errno == EAGAIN)
+				continue;
+			else
+				err_sys("write error");
+		}else
+			break;
+	}
 }
 
 int

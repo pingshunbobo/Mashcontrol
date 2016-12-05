@@ -47,18 +47,22 @@ int main(int argc, char **argv)
 	char	reply[MAXN];
 
 	/* daemon_init */
+	if((pid = Fork())!=0)
+		exit(0);
+	setsid();
 	signal(SIGCHLD, sig_child);
 	signal(SIGINT, SIG_IGN);
 
 	if(Fork() != 0)
 		exit(0);
-	setsid();
 
-	chdir("~");
+	chdir("/");
 	umask(0);
-	/* end daemon_init */
-	
+	close(0);
+	close(1);
+	close(2);
 
+	/* end daemon_init */
 
 start:
 	pid = pty_fork(&fdm, slave_name, 20, NULL, NULL);
@@ -73,17 +77,15 @@ start:
 	int cflags = fcntl(fdm,F_GETFL,0);
 	fcntl(fdm,F_SETFL, cflags|O_NONBLOCK);
 
-	close(0);
-	close(1);
-	close(2);
 	sockfd = Tcp_connect("127.0.0.1", "9367");
 	setnonblocking(sockfd);
+
 	FD_ZERO(&rset);
 	/*  parent process  */
 	while(1){
 		FD_SET(sockfd, &rset);
 		FD_SET(fdm, &rset);
-		select (fdm + 1, &rset, NULL, NULL, NULL);
+		select (sockfd + 1, &rset, NULL, NULL, NULL);
 		if(FD_ISSET(sockfd, &rset)){
 			memset(request, '\0', MAXN);
 			nbytes = read(sockfd, request, MAXN);
@@ -92,7 +94,8 @@ start:
 				continue;
 			}
 			if ( nbytes == 0){
-				//printf("server returned %d bytes error %s", nbytes, strerror(errno));
+				printf("server closed sockfd %s", nbytes, strerror(errno));
+				writen(fdm, "exit\n", 5);
 				goto restart;
 			}
 
@@ -115,7 +118,7 @@ start:
 
 restart:
 	Close(sockfd);
-	sleep(10);
+	sleep(5);
 	goto start;
 }
 

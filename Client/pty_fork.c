@@ -61,7 +61,6 @@ pid_t pty_fork(int *ptyfdm, char *slave_name, int slave_namesz,
 		if(setsid() < 0)
 			printf("setsid error");
 
-//		printf("fork: pts_name: %s",pts_name);
 		if((fds = ptys_open(pts_name)) < 0)
 			printf("can`t open slave pty");
 		close(fdm);

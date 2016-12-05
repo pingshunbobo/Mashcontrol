@@ -66,23 +66,46 @@ enum MASH_TYPE mash_type(char *reply)
 	return MASH_DATA;
 }
 
-void mash_display(struct mashdata *data, int selected)
+void mash_display(struct mashdata *data, int sockfd)
 {
 	int i;
+	int nbytes = 0;
 	for(i = 0; i < 10; ++i){
-		if( data[i].selected & selected ){
-			printf("%d %s\n", i, inet_ntoa(data[i].client.sin_addr));
-		}else
-			printf("%d %s\n", i, inet_ntoa(data[i].client.sin_addr));
+		if(data[i].role){
+			if(data[i].selected)
+				nbytes += snprintf(data[sockfd].reply + nbytes, 3, "++");
+			else
+				nbytes += snprintf(data[sockfd].reply + nbytes, 3, "--");
+			nbytes += snprintf(data[sockfd].reply + nbytes, 1024,\
+				"%d role: %d add: %s\n", i, data[i].role, inet_ntoa(data[i].client.sin_addr)
+			);
+		}//end if role 
 	}
+	Write(sockfd, data[sockfd].reply, nbytes);
 }
 
 void mash_show(struct mashdata *data)
 {
+	int i;
+	for(i = 0; i < 10; ++i){
+		if( data[i].selected){
+			printf("%s",data[i].reply);
+		}
+	}
 	return;
 }
 
-int mash_selected(struct mashdata *data)
+int mash_select(struct mashdata *data, int n)
+{
+	data[n].selected = 1;
+}
+
+int mash_unselect(struct mashdata *data, int n)
+{
+	data[n].selected = 0;
+}
+
+int alselected(struct mashdata *data)
 {
 	int j;
 	int num = 0;
@@ -135,21 +158,19 @@ int mash_cmd(struct mashdata *data, int sockfd, int epollfd)
 	/* check mashcmd command */
 	if(!strncmp(cmd, "mashcmd", 7)){
 		data[sockfd].status = CMD;
-		write(sockfd, "mashcmd%", 8);
 		return 1;
 	}
 	if(!strncmp(cmd, "mashcli", 7)){
-		if( mash_selected( data ) < 1){
+		if( alselected( data ) < 1){
 			nbytes = snprintf(data[sockfd].reply, 1024,\
 				"Error: select more than one interface.\r\n");
 			Write(sockfd, data[sockfd].reply, nbytes);
-			Write(sockfd, "mashcli#", 8);
 		}else
 			data[sockfd].status = CLI;
 		return 1;
 	}
 	if(!strncmp(cmd, "interface", 9)){
-		if( mash_selected( data ) != 1){
+		if( alselected( data ) != 1){
 			nbytes = snprintf(data[sockfd].reply, 1024,\
 				"Error: select than one interface.\r\n");
 			Write(sockfd, data[sockfd].reply, nbytes);
@@ -159,8 +180,8 @@ int mash_cmd(struct mashdata *data, int sockfd, int epollfd)
 		}
 		return 1;
 	}
-	if(!strncmp(cmd, "display", 8)){
-		mash_display(data, 1);
+	if(!strncmp(cmd, "display", 7)){
+		mash_display(data, sockfd);
 		return 1;
 	}
 	if(!strncmp(cmd, "show", 4)){
@@ -169,15 +190,18 @@ int mash_cmd(struct mashdata *data, int sockfd, int epollfd)
 		return 1;
 	}
 	if(!strncmp(cmd, "select", 6)){
-		write(sockfd, "select", 6);
+		mash_select(data, atoi(cmd + 6));
+
+		//write(sockfd, "select", 6);
 		return 1;
 	}
 	if(!strncmp(cmd, "unselect", 8)){
-		write(sockfd, "unselect", 8);
+		mash_unselect(data, atoi(cmd + 8));
+		//write(sockfd, "unselect", 8);
 		return 1;
 	}
 	if(!strncmp(cmd, "help", 4)){
-		mash_help(data,sockfd);
+		mash_help(data, sockfd);
 		return 1;
 	}
 
@@ -192,13 +216,10 @@ int mash_cmd(struct mashdata *data, int sockfd, int epollfd)
 				modevent(epollfd, j, EPOLLOUT);
 			}
 		}
-		if(CLI == data[sockfd].status)
-			write(sockfd, "mashcli#", 8);
 		return cmd_size;
 	}
 
 	if(!strncmp(cmd, "\n", 1)){
-		write(sockfd, "mashcmd%", 8);
 		return 1;
 	}else{
 		/* unknow cmd info sent to controls */
@@ -214,6 +235,10 @@ int mash_console(struct mashdata *data, int sockfd, int epollfd)
 	/* login ok! */
 	if(mash_login(data + sockfd)){
 		mash_cmd(data, sockfd, epollfd);
+		if(CLI == data[sockfd].status)
+			write(sockfd, "mashcli#", 8);
+		else if(CMD == data[sockfd].status)
+			write(sockfd, "mashcmd%", 8);
 	}else
 		mash_close(data, sockfd);
 	return 0;
@@ -222,9 +247,8 @@ int mash_console(struct mashdata *data, int sockfd, int epollfd)
 int mash_init(struct mashdata *data, int sockfd, struct sockaddr_in client_addr)
 {
 	setnonblocking(sockfd);
-	data[sockfd].selected = 1;
 	data[sockfd].connfd = sockfd;
-	data[sockfd].role = 0;
+	data[sockfd].role = 1;
 	data[sockfd].client = client_addr;
 	data[sockfd].nrequest = 0;
 	data[sockfd].nreply = 0;
@@ -249,8 +273,8 @@ int mash_process(struct mashdata *data, int sockfd, int epollfd)
 					Write(data[i].connfd, data[sockfd].reply, nbytes);
 				}
 			}
-			Write(STDOUT_FILENO, data[sockfd].reply, nbytes);
-        		fflush(stdout);
+			//Write(STDOUT_FILENO, data[sockfd].reply, nbytes);
+        		//fflush(stdout);
 
 			break;
 		default:

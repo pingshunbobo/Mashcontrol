@@ -37,7 +37,7 @@ int main(int argc, char **argv)
 				if ( connfd < 0 )
 					continue;
 
-				/*connect success ,now go to initial the mash data struct*/
+				/* Connect success ,now go to initial the mash data struct*/
 				mash_init(coredata, connfd, client_address);
 				addevent(epollfd, connfd, false);
 			}else if( events[i].events & EPOLLIN ){

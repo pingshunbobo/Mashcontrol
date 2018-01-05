@@ -71,11 +71,13 @@ void mash_display(struct mashdata *data, int sockfd)
 	int i;
 	int nbytes = 0;
 	for(i = 0; i < 10; ++i){
-		if(data[i].role){
-			if(data[i].selected)
+		if(data[i].role == 1){
+			if( data[i].selected == sockfd)
 				nbytes += snprintf(data[sockfd].reply + nbytes, 3, "++");
-			else
+			else if( data[i].selected == 0)
 				nbytes += snprintf(data[sockfd].reply + nbytes, 3, "--");
+			else
+				nbytes += snprintf(data[sockfd].reply + nbytes, 3, "+-");
 			nbytes += snprintf(data[sockfd].reply + nbytes, 1024,\
 				"%d role: %d add: %s\n", i, data[i].role, inet_ntoa(data[i].client.sin_addr)
 			);
@@ -95,22 +97,32 @@ void mash_show(struct mashdata *data)
 	return;
 }
 
-int mash_select(struct mashdata *data, int n)
+int mash_select(struct mashdata *data, int n, int sockfd)
 {
-	data[n].selected = 1;
+	int nbytes = 0;
+	int admin_id = sockfd;
+	if( data[n].selected > 0 && data[n].selected != admin_id){
+		nbytes += snprintf(data[admin_id].reply + nbytes, 1024, "Has selected by another admin!\n");
+	}else if(data[n].role == 1 && data[admin_id].role == 9){
+		data[n].selected = sockfd;
+		nbytes += snprintf(data[admin_id].reply + nbytes, 1024, "Select slave: %d ok!\n", n);
+	}
+	Write(sockfd, data[admin_id].reply, nbytes);
+	return 0;
 }
 
-int mash_unselect(struct mashdata *data, int n)
+int mash_unselect(struct mashdata *data, int n, int admin_id)
 {
-	data[n].selected = 0;
+	if(data[n].role > 0 && data[n].selected == admin_id)
+		data[n].selected = 0;
 }
 
-int alselected(struct mashdata *data)
+int has_selected(struct mashdata *data, int admin_id)
 {
 	int j;
 	int num = 0;
 	for(j = 0; j < 10; ++j){
-		if( data[j].selected ){
+		if( data[j].selected == admin_id){
 			++num;
 		}
 	}
@@ -125,11 +137,12 @@ void mash_help(struct mashdata *data, int sockfd)
 	mashcmd  	basic command mode.\n \
 	mashcli  	command mode, sent cmd to all the selected slave.\n \
 	interface  	inter interactive mode with the selected slave.\n \
-	select  	select one slave.\n \
+	select  	choose one slave.\n \
 	unselect  	unselect one slave.\n \
 	display  	show client list.\n \
 	show  		show all the client run result.\n \
 	help  		show this page.\n"); 
+
 	Write(sockfd, data[sockfd].reply, nbytes);
 }
 
@@ -161,7 +174,7 @@ int mash_cmd(struct mashdata *data, int sockfd, int epollfd)
 		return 1;
 	}
 	if(!strncmp(cmd, "mashcli", 7)){
-		if( alselected( data ) < 1){
+		if( has_selected( data, sockfd) < 1){
 			nbytes = snprintf(data[sockfd].reply, 1024,\
 				"Error: select more than one interface.\r\n");
 			Write(sockfd, data[sockfd].reply, nbytes);
@@ -170,9 +183,9 @@ int mash_cmd(struct mashdata *data, int sockfd, int epollfd)
 		return 1;
 	}
 	if(!strncmp(cmd, "interface", 9)){
-		if( alselected( data ) != 1){
+		if( has_selected( data , sockfd) != 1){
 			nbytes = snprintf(data[sockfd].reply, 1024,\
-				"Error: select than one interface.\r\n");
+				"Error: Please choose only one interface.\r\n");
 			Write(sockfd, data[sockfd].reply, nbytes);
 		}else{
 			data[sockfd].status = INTERFACE;
@@ -190,13 +203,13 @@ int mash_cmd(struct mashdata *data, int sockfd, int epollfd)
 		return 1;
 	}
 	if(!strncmp(cmd, "select", 6)){
-		mash_select(data, atoi(cmd + 6));
+		mash_select(data, atoi(cmd + 6), sockfd);
 
 		//write(sockfd, "select", 6);
 		return 1;
 	}
 	if(!strncmp(cmd, "unselect", 8)){
-		mash_unselect(data, atoi(cmd + 8));
+		mash_unselect(data, atoi(cmd + 8), sockfd);
 		//write(sockfd, "unselect", 8);
 		return 1;
 	}
@@ -209,8 +222,8 @@ int mash_cmd(struct mashdata *data, int sockfd, int epollfd)
 	if(CLI == data[sockfd].status | \
 		INTERFACE == data[sockfd].status){
 		/* unknow cmd, send cmd to cliend*/
-		for(j = 0; j < 10; ++j){
-			if( data[j].selected ){
+		for(j = 0; j < 100; ++j){
+			if( data[j].selected == sockfd ){
 				data[j].nrequest = cmd_size;
 				memcpy(data[j].request, cmd, cmd_size);
 				modevent(epollfd, j, EPOLLOUT);

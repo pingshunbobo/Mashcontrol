@@ -51,6 +51,7 @@ int main(int argc, char **argv)
 				printf("writen error to master pty");
 		}
 		if(FD_ISSET(STDIN_FILENO,&rset)){
+			// Add Magic code to message!
 			memcpy(request, "Mashcmd:", 8);
 			if ( (nbytes = read(STDIN_FILENO, request + 8, BUFFSIZE)) <= 0)
 				break;

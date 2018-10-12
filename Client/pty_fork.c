@@ -32,7 +32,7 @@ int ptym_open(char *pts_name, int pts_namesz)
 	return fdm;
 }
 
-int ptys_open(char * pts_name)
+int ptys_open(char* pts_name)
 {
 	int fds;
 	if((fds = open(pts_name, O_RDWR)) < 0)
@@ -51,7 +51,7 @@ pid_t pty_fork(int *ptyfdm, char *slave_name, int slave_namesz,
 	if((fdm = ptym_open(pts_name, sizeof(pts_name))) < 0)
 		printf("can`t open master pty : %s",pts_name);
 	if(slave_name != NULL){
-		strncpy(slave_name,pts_name,slave_namesz);
+		strncpy(slave_name, pts_name, slave_namesz);
 		slave_name[slave_namesz - 1] = '\0';
 	}
 

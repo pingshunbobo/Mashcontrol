@@ -3,11 +3,11 @@
 #include	<stdbool.h>
 #include	<sys/epoll.h>
 
-#define MAXN   65535
+#define REPLY_SIZE   4096
 #define MAX_FD 65535
 #define MAX_EVENT_NUMBER 10000
 
-enum MASH_TYPE {MASH_CMD, MASH_DATA, MASH_UNKNOW};
+enum MASH_DATA_TYPE {MASH_CMD, MASH_DATA, MASH_UNKNOW};
 enum MASH_STATUS {CMD, CLI, INTERFACE};
 
 struct mashdata
@@ -19,8 +19,8 @@ struct mashdata
 	struct sockaddr_in client;
 	int result;
         int nrequest, nreply;
-        char request[MAXN];
-        char reply[MAXN];
+        char request[REPLY_SIZE];
+        char reply[REPLY_SIZE];
 	void * data;
 };
 
@@ -59,7 +59,7 @@ void delevent(int epollfd, int fd)
     Epoll_ctl( epollfd, EPOLL_CTL_DEL, fd, 0 );
 }
 
-enum MASH_TYPE mash_type(char *reply)
+enum MASH_DATA_TYPE mash_type(char *reply)
 {
 	if(!strncmp(reply, "Mashcmd:", 8))
                 return MASH_CMD;
@@ -97,15 +97,15 @@ void mash_show(struct mashdata *data)
 	return;
 }
 
-int mash_select(struct mashdata *data, int n, int sockfd)
+int mash_select(struct mashdata *data, int id, int sockfd)
 {
 	int nbytes = 0;
 	int admin_id = sockfd;
-	if( data[n].selected > 0 && data[n].selected != admin_id){
+	if( data[id].selected > 0 && data[id].selected != admin_id){
 		nbytes += snprintf(data[admin_id].reply + nbytes, 1024, "Has selected by another admin!\n");
-	}else if(data[n].role == 1 && data[admin_id].role == 9){
-		data[n].selected = sockfd;
-		nbytes += snprintf(data[admin_id].reply + nbytes, 1024, "Select slave: %d ok!\n", n);
+	}else if(data[id].role == 1 && data[admin_id].role == 9){
+		data[id].selected = sockfd;
+		nbytes += snprintf(data[admin_id].reply + nbytes, 1024, "Select slave: %d ok!\n", id);
 	}
 	Write(sockfd, data[admin_id].reply, nbytes);
 	return 0;
@@ -132,8 +132,8 @@ int has_selected(struct mashdata *data, int admin_id)
 void mash_help(struct mashdata *data, int sockfd)
 {
 	int nbytes;
-	nbytes = snprintf(data[sockfd].reply, 1024,\
-		"Error: select more than one interface.\n \
+	nbytes = snprintf(data[sockfd].reply, 1024, "\n \
+	help info: \n \
 	mashcmd  	basic command mode.\n \
 	mashcli  	command mode, sent cmd to all the selected slave.\n \
 	interface  	inter interactive mode with the selected slave.\n \
@@ -141,7 +141,8 @@ void mash_help(struct mashdata *data, int sockfd)
 	unselect  	unselect one slave.\n \
 	display  	show client list.\n \
 	show  		show all the client run result.\n \
-	help  		show this page.\n"); 
+	help  		show this page.\n\n"
+	); 
 
 	Write(sockfd, data[sockfd].reply, nbytes);
 }
@@ -176,7 +177,7 @@ int mash_cmd(struct mashdata *data, int sockfd, int epollfd)
 	if(!strncmp(cmd, "mashcli", 7)){
 		if( has_selected( data, sockfd) < 1){
 			nbytes = snprintf(data[sockfd].reply, 1024,\
-				"Error: select more than one interface.\r\n");
+				"Error: select at least one interface.\r\n");
 			Write(sockfd, data[sockfd].reply, nbytes);
 		}else
 			data[sockfd].status = CLI;
@@ -265,8 +266,8 @@ int mash_init(struct mashdata *data, int sockfd, struct sockaddr_in client_addr)
 	data[sockfd].client = client_addr;
 	data[sockfd].nrequest = 0;
 	data[sockfd].nreply = 0;
-	memset(data[sockfd].request, '\0', MAXN);
-	memset(data[sockfd].reply, '\0', MAXN);
+	memset(data[sockfd].request, '\0', REPLY_SIZE);
+	memset(data[sockfd].reply, '\0', REPLY_SIZE);
 }
 
 int mash_process(struct mashdata *data, int sockfd, int epollfd)
@@ -280,8 +281,10 @@ int mash_process(struct mashdata *data, int sockfd, int epollfd)
 			break;
 		case (MASH_DATA):
 			nbytes = data[sockfd].nreply;
-			//return reply to admin console
-			for(i = 0; i < 10; ++i){
+			/*
+			 * return reply to admin console
+			*/
+			for(i = 0; i < 10; i++){
 				if( 9 == data[i].role && data[i].status == INTERFACE ){
 					Write(data[i].connfd, data[sockfd].reply, nbytes);
 				}
@@ -300,8 +303,8 @@ int mash_process(struct mashdata *data, int sockfd, int epollfd)
 int mash_read(struct mashdata *data, int sockfd)
 {
 	int nread;
-        memset(data[sockfd].reply, '\0', MAXN);
-	if ( (nread = read(sockfd, data[sockfd].reply, MAXN)) == 0){
+        memset(data[sockfd].reply, '\0', REPLY_SIZE);
+	if ( (nread = read(sockfd, data[sockfd].reply, REPLY_SIZE)) == 0){
 		printf("connectionclosed by other end");
 		return 0;
 	}
@@ -319,5 +322,6 @@ int mash_close(struct mashdata *data, int sockfd)
 {
 	data[sockfd].selected = 0;
 	close(sockfd);
+	return 0;
 }
 

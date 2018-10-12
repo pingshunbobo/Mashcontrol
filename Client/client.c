@@ -6,7 +6,6 @@
 #include <errno.h>
 #define	MAXN	16384		/* max #bytes to request from server */
 
-
 void sig_child(int signo);
 void server(char *host, char *port);
 
@@ -127,4 +126,5 @@ void sig_child(int signo)
 	pid_t pid;
 	int stat;
 	pid = wait(&stat);
+	printf("bash exit!");
 }

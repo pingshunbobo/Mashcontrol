@@ -6,11 +6,11 @@
 
 int main(int argc, char **argv)
 {
-	int	i,j;
-	int	nread;
-	int 	number;
-	int 	epollfd;
-	int	listenfd;
+	int	i = 0;
+	int	nread = 0;
+	int 	number = 0;
+	int 	epollfd = 0;
+	int	listenfd = 0;
 	socklen_t addrlen;
 
 	char request[MAXN];

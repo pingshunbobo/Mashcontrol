@@ -117,7 +117,7 @@ int mash_unselect(struct mashdata *data, int n, int admin_id)
 		data[n].selected = 0;
 }
 
-int has_selected(struct mashdata *data, int admin_id)
+int selected_num(struct mashdata *data, int admin_id)
 {
 	int j;
 	int num = 0;
@@ -175,7 +175,7 @@ int mash_cmd(struct mashdata *data, int sockfd, int epollfd)
 		return 1;
 	}
 	if(!strncmp(cmd, "mashcli", 7)){
-		if( has_selected( data, sockfd) < 1){
+		if( selected_num( data, sockfd) < 1){
 			nbytes = snprintf(data[sockfd].reply, 1024,\
 				"Error: select at least one interface.\r\n");
 			Write(sockfd, data[sockfd].reply, nbytes);
@@ -184,7 +184,7 @@ int mash_cmd(struct mashdata *data, int sockfd, int epollfd)
 		return 1;
 	}
 	if(!strncmp(cmd, "interface", 9)){
-		if( has_selected( data , sockfd) != 1){
+		if( selected_num( data , sockfd) != 1){
 			nbytes = snprintf(data[sockfd].reply, 1024,\
 				"Error: Please choose only one interface.\r\n");
 			Write(sockfd, data[sockfd].reply, nbytes);
@@ -320,6 +320,21 @@ int mash_write(struct mashdata *data, int sockfd)
 
 int mash_close(struct mashdata *data, int sockfd)
 {
+	int i = 0;
+	int admin_id = 0;
+	if(data[sockfd].role == 1){
+		admin_id = data[sockfd].selected;
+		data[admin_id].status = CMD;
+		Write(admin_id, "mashcmd%", 8);
+	}else if( data[sockfd].role == 9 ){
+		admin_id = sockfd;
+		for(i = 0; i < 10; ++i){
+			if(data[i].role == 1 && data[i].selected == admin_id){
+				data[i].selected = 0;
+                	}
+        	}
+	}
+
 	data[sockfd].selected = 0;
 	close(sockfd);
 	return 0;

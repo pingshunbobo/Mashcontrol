@@ -2,7 +2,7 @@
 This is a remote operation tool for managing the Linux operating system. You can use it to remote manage the host which has no pulic ip address. In many cases it is needed.
 
 ## How to install ?<br>
-The code was so simple. you can compile adn run it directly.
+The code was so simple. you can compile and run it directly.
 * 1 Download the source code . <br>
 `git clone https://github.com/pingshunbobo/Mashcontrol.git`
 

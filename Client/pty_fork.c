@@ -63,6 +63,9 @@ pid_t pty_fork(int *ptyfdm, char *slave_name, int slave_namesz,
 
 		if((fds = ptys_open(pts_name)) < 0)
 			printf("can`t open slave pty");
+		/*
+		 after open ptys we can close the fdm file descriper in the child process.
+		*/
 		close(fdm);
 
 		if(slave_termios != NULL){
@@ -73,7 +76,6 @@ pid_t pty_fork(int *ptyfdm, char *slave_name, int slave_namesz,
 			if(ioctl(fds, TIOCSWINSZ, slave_winsize) < 0)
 				printf("TIOCSWINSZ error on slave pty");
 		}
-
 		if(dup2(fds, STDIN_FILENO) != STDIN_FILENO)
 			printf("dup2 error to stdin! ");
 		if(dup2(fds, STDOUT_FILENO) != STDIN_FILENO)
@@ -81,7 +83,7 @@ pid_t pty_fork(int *ptyfdm, char *slave_name, int slave_namesz,
 		if(dup2(fds, STDERR_FILENO) != STDIN_FILENO)
 			printf("dup2 error to stderr! ");
 		if(fds != STDIN_FILENO && fds != STDIN_FILENO && fds != STDIN_FILENO)
-			close(fds);
+
 		return 0;
 	}else{
 		*ptyfdm = fdm;

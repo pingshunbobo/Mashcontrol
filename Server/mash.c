@@ -2,26 +2,7 @@
 #include	<stdlib.h>
 #include	<stdbool.h>
 #include	<sys/epoll.h>
-
-#define REPLY_SIZE   4096
-#define MAX_FD 65535
-#define MAX_EVENT_NUMBER 10000
-
-enum MASH_DATA_TYPE {MASH_CMD, MASH_DATA, MASH_UNKNOW};
-enum MASH_STATUS {CMD, CLI, INTERFACE};
-
-struct mashdata
-{
-        int selected;
-        int connfd;
-	int role;
-	enum MASH_STATUS status;
-	struct sockaddr_in client;
-        int nrequest, nreply;
-        char request[REPLY_SIZE];
-        char reply[REPLY_SIZE];
-	void * data;
-};
+#include 	"mash.h"
 
 int setnonblocking( int fd )
 {

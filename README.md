@@ -37,7 +37,6 @@ The code was so simple. you can compile and run it directly.
 * Input **`mashcmd`** can back to mashcmd%. 
 
 ##know issues
-* In some case, the client Pseudo Terminal io open error, Control terminal can not run cammand normaly。you need run **`exit`** to restart the bash on the clent. and wait for 5 second.
 
 ##Have more questions?
 Send email to pingshunbobo@sina.cn

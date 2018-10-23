@@ -13,7 +13,6 @@ int main(int argc, char **argv)
 	int	listenfd = 0;
 	socklen_t addrlen;
 
-	char request[MAXN];
 	struct epoll_event events[MAX_EVENT_NUMBER];
 
 	struct mashdata * coredata = \

@@ -23,7 +23,7 @@ int main(int argc, char **argv)
 	addevent(epollfd, listenfd, false);
 	addevent(epollfd, STDIN_FILENO, false);
 
-	//loop process io events.
+	/* loop process io events. */
 	for ( ; ; ){
 		if((number = Epoll_wait( epollfd, events, MAX_EVENT_NUMBER, -1 )) <= -1)
 			continue;

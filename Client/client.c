@@ -52,11 +52,6 @@ int main(int argc, char **argv)
 	signal(SIGCHLD, sig_child);
 	signal(SIGINT, SIG_IGN);
 
-	/*
-	if(Fork() != 0)
-		exit(0);
-	*/
-
 	chdir("/");
 	umask(0);
 	close(0);
@@ -78,7 +73,8 @@ start:
 	int cflags = fcntl(fdm,F_GETFL,0);
 	fcntl(fdm,F_SETFL, cflags|O_NONBLOCK);
 
-	sockfd = Tcp_connect("127.0.0.1", "9367");
+connect:
+	sockfd = Tcp_connect("192.168.78.135", "9367");
 	setnonblocking(sockfd);
 
 	FD_ZERO(&rset);
@@ -91,15 +87,15 @@ start:
 			memset(request, '\0', BUF_SIZE);
 			nbytes = read(sockfd, request, BUF_SIZE);
 			if ( nbytes < 0){
-				/* error! */
+				/* read data error! */
 				continue;
 			}
 			if ( nbytes == 0){
 				printf("server closed sockfd %s", nbytes, strerror(errno));
-				writen(fdm, "exit\n", 5);
-				goto restart;
+				// kill(pid, 9); 
+				goto reconnect;
 			}
-
+			/* write content which from server to the pty bash */
 			if (writen(fdm, request, nbytes) != nbytes)
 				printf("writen error to master pty");
 		}
@@ -115,7 +111,12 @@ start:
 					goto restart;
 			}
 		}
-	}
+	} /* end loop */
+
+reconnect:
+	Close(sockfd);
+	sleep(5);
+	goto connect;
 
 restart:
 	Close(sockfd);

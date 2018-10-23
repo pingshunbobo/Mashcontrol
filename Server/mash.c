@@ -17,7 +17,6 @@ struct mashdata
 	int role;
 	enum MASH_STATUS status;
 	struct sockaddr_in client;
-	int result;
         int nrequest, nreply;
         char request[REPLY_SIZE];
         char reply[REPLY_SIZE];
@@ -104,7 +103,7 @@ int mash_select(struct mashdata *data, int id, int sockfd)
 	if( data[id].selected > 0 && data[id].selected != admin_id){
 		nbytes += snprintf(data[admin_id].reply + nbytes, 1024, "Has selected by another admin!\n");
 	}else if(data[id].role == 1 && data[admin_id].role == 9){
-		data[id].selected = sockfd;
+		data[id].selected = admin_id;
 		nbytes += snprintf(data[admin_id].reply + nbytes, 1024, "Select slave: %d ok!\n", id);
 	}
 	Write(sockfd, data[admin_id].reply, nbytes);
@@ -147,7 +146,7 @@ void mash_help(struct mashdata *data, int sockfd)
 	Write(sockfd, data[sockfd].reply, nbytes);
 }
 
-int mash_login(struct mashdata *data)
+int mash_auth(struct mashdata *data)
 {
 	char login_ip[] = "127.0.0.1";
 	if(data->role == 9)	/* Already login */
@@ -247,7 +246,7 @@ int mash_cmd(struct mashdata *data, int sockfd, int epollfd)
 int mash_console(struct mashdata *data, int sockfd, int epollfd)
 {
 	/* login ok! */
-	if(mash_login(data + sockfd)){
+	if(mash_auth(data + sockfd)){
 		mash_cmd(data, sockfd, epollfd);
 		if(CLI == data[sockfd].status)
 			write(sockfd, "mashcli#", 8);
@@ -273,29 +272,27 @@ int mash_init(struct mashdata *data, int sockfd, struct sockaddr_in client_addr)
 int mash_process(struct mashdata *data, int sockfd, int epollfd)
 {
 	int i;
-	int nbytes;
 	/* Check Magic number from data.reply */
 	switch( mash_type(data[sockfd].reply) ){
 		case (MASH_CMD):
 			mash_console(data, sockfd, epollfd);
 			break;
 		case (MASH_DATA):
-			nbytes = data[sockfd].nreply;
+			if( data[sockfd].selected  <= 0  )
+				mash_auth(data + sockfd);
 			/*
 			 * return reply to admin console
 			*/
 			for(i = 0; i < 10; i++){
 				if( 9 == data[i].role && data[i].status == INTERFACE ){
-					Write(data[i].connfd, data[sockfd].reply, nbytes);
+					Write(data[i].connfd, data[sockfd].reply, data[sockfd].nreply);
 				}
 			}
-			//Write(STDOUT_FILENO, data[sockfd].reply, nbytes);
-        		//fflush(stdout);
 
 			break;
 		default:
 			printf("unknow client");
-			mash_close(sockfd);
+			mash_close(data, sockfd);
 	}
 	return 0;
 }
@@ -324,8 +321,10 @@ int mash_close(struct mashdata *data, int sockfd)
 	int admin_id = 0;
 	if(data[sockfd].role == 1){
 		admin_id = data[sockfd].selected;
-		data[admin_id].status = CMD;
-		Write(admin_id, "mashcmd%", 8);
+		if( admin_id ){
+			data[admin_id].status = CMD;
+			Write(admin_id, "client closed \nmashcmd%", 25);
+		}
 	}else if( data[sockfd].role == 9 ){
 		admin_id = sockfd;
 		for(i = 0; i < 10; ++i){
@@ -334,8 +333,10 @@ int mash_close(struct mashdata *data, int sockfd)
                 	}
         	}
 	}
-
+	data[sockfd].role = 0;
+	data[sockfd].connfd = -1;
 	data[sockfd].selected = 0;
+
 	close(sockfd);
 	return 0;
 }

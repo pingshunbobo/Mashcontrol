@@ -49,7 +49,7 @@ int main(int argc, char **argv)
 		if(FD_ISSET(sockfd, &rset)){
 			memset(reply, '\0', BUF_SIZE);
 			if ( (nbytes = read(sockfd, reply, BUF_SIZE)) <= 0){
-				printf("server returned %d bytes error %s", nbytes,strerror(errno));
+				printf("server returned %d bytes error %s\n", nbytes, strerror(errno));
 				close(sockfd);
 				exit(1);
 			}
@@ -58,7 +58,7 @@ int main(int argc, char **argv)
 				printf("writen stdout error.\n");
 		}
 		if(FD_ISSET(STDIN_FILENO, &rset)){
-			// Add Magic code to message!
+			/* Add Magic code to message! */
 			memcpy(request, "Mashcmd:", 8);
 			if ( (nbytes = read(STDIN_FILENO, request + 8, BUFFSIZE)) < 0)
 				break;

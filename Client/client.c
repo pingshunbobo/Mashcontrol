@@ -74,7 +74,7 @@ start:
 	fcntl(fdm,F_SETFL, cflags|O_NONBLOCK);
 
 connect:
-	sockfd = Tcp_connect("192.168.78.135", "9367");
+	sockfd = Tcp_connect("mashcontrol.pingshunbobo.com", "19293");
 	setnonblocking(sockfd);
 
 	FD_ZERO(&rset);

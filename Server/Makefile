@@ -9,13 +9,13 @@ serv:	serv.o mash.o tcp_listen.o ${LIBS}
 	${CC} ${CFLAGS}  -o serv serv.o mash.o tcp_listen.o ${LIBS}
 
 mash.o: mash.c
-	${CC} -c mash.c
+	${CC} ${CFLAGS} -c mash.c
 
 serv.o: serv.c
-	${CC} -c serv.c
+	${CC} ${CFLAGS} -c serv.c
 
 tcp_lisen.o:	tcp_listen.c
-	${CC} -c tcp_listen.c
+	${CC} ${CFLAGS} -c tcp_listen.c
 
 CLEANFILES=*.o serv
 

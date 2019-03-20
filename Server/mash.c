@@ -43,6 +43,8 @@ enum MASH_DATA_TYPE mash_type(char *reply)
 {
 	if(!strncmp(reply, "Mashcmd:", 8))
                 return MASH_CMD;
+	if(!strncmp(reply, "Mashinfo:", 9))
+                return MASH_INFO;
 	return MASH_DATA;
 }
 
@@ -59,7 +61,7 @@ void mash_display(struct mashdata *data, int sockfd)
 			else
 				nbytes += snprintf(data[sockfd].reply + nbytes, 3, "+-");
 			nbytes += snprintf(data[sockfd].reply + nbytes, 1024,\
-				"%d role: %d add: %s\n", i, data[i].role, inet_ntoa(data[i].client.sin_addr)
+				"%d role: %d add: %s-%s\n", i, data[i].role, inet_ntoa(data[i].client_pub.sin_addr), data[i].client_pri
 			);
 		}//end if role 
 	}
@@ -132,7 +134,7 @@ int mash_auth(struct mashdata *data)
 	char login_ip[] = "127.0.0.1";
 	if(data->role == 9)	/* Already login */
 		return 1;
-	if(!strncmp(inet_ntoa(data->client.sin_addr), login_ip, 9)){
+	if(!strncmp(inet_ntoa(data->client_pub.sin_addr), login_ip, 9)){
 		/* Is admin */
 		data->role = 9;
 		data->status = CMD;
@@ -243,13 +245,18 @@ int mash_init(struct mashdata *data, int sockfd, struct sockaddr_in client_addr)
 	setnonblocking(sockfd);
 	data[sockfd].connfd = sockfd;
 	data[sockfd].role = 1;
-	data[sockfd].client = client_addr;
+	data[sockfd].client_pub = client_addr;
 	data[sockfd].nrequest = 0;
 	data[sockfd].nreply = 0;
 	memset(data[sockfd].request, '\0', REPLY_SIZE);
 	memset(data[sockfd].reply, '\0', REPLY_SIZE);
 }
 
+int mash_info(struct mashdata *data, int sockfd)
+{
+	printf("info data: %s", data[sockfd].reply);
+        memcpy(data[sockfd].client_pri, data[sockfd].reply+10, 16);
+}
 int mash_process(struct mashdata *data, int sockfd, int epollfd)
 {
 	int i;
@@ -257,6 +264,9 @@ int mash_process(struct mashdata *data, int sockfd, int epollfd)
 	switch( mash_type(data[sockfd].reply) ){
 		case (MASH_CMD):
 			mash_console(data, sockfd, epollfd);
+			break;
+		case (MASH_INFO):
+			mash_info(data, sockfd);
 			break;
 		case (MASH_DATA):
 			if( data[sockfd].selected  <= 0  )
@@ -292,8 +302,7 @@ int mash_read(struct mashdata *data, int sockfd)
 
 int mash_write(struct mashdata *data, int sockfd)
 {
-	Write(sockfd, data[sockfd].request, data[sockfd].nrequest);
-	return 0;
+	return Write(sockfd, data[sockfd].request, data[sockfd].nrequest);
 }
 
 int mash_close(struct mashdata *data, int sockfd)

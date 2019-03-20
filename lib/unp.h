@@ -359,7 +359,7 @@ void	 Sysctl(int *, u_int, void *, size_t *, void *, size_t);
 void	 Unlink(const char *);
 pid_t	 Wait(int *);
 pid_t	 Waitpid(pid_t, int *, int);
-void	 Write(int, void *, size_t);
+int	 Write(int, void *, size_t);
 
 			/* prototypes for our stdio wrapper functions: see {Sec errors} */
 void	 Fclose(FILE *);

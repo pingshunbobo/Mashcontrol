@@ -25,7 +25,7 @@ Calloc(size_t n, size_t size)
 	void	*ptr;
 
 	if ( (ptr = calloc(n, size)) == NULL)
-		err_sys("calloc error");
+		err_ret("calloc error");
 	return(ptr);
 }
 
@@ -33,14 +33,14 @@ void
 Close(int fd)
 {
 	if (close(fd) == -1)
-		err_sys("close error");
+		err_ret("close error");
 }
 
 void
 Dup2(int fd1, int fd2)
 {
 	if (dup2(fd1, fd2) == -1)
-		err_sys("dup2 error");
+		err_ret("dup2 error");
 }
 
 int
@@ -49,7 +49,7 @@ Fcntl(int fd, int cmd, int arg)
 	int	n;
 
 	if ( (n = fcntl(fd, cmd, arg)) == -1)
-		err_sys("fcntl error");
+		err_ret("fcntl error");
 	return(n);
 }
 
@@ -57,7 +57,7 @@ void
 Gettimeofday(struct timeval *tv, void *foo)
 {
 	if (gettimeofday(tv, foo) == -1)
-		err_sys("gettimeofday error");
+		err_ret("gettimeofday error");
 	return;
 }
 
@@ -67,7 +67,7 @@ Ioctl(int fd, int request, void *arg)
 	int		n;
 
 	if ( (n = ioctl(fd, request, arg)) == -1)
-		err_sys("ioctl error");
+		err_ret("ioctl error");
 	return(n);	/* streamio of I_LIST returns value */
 }
 
@@ -77,7 +77,7 @@ Fork(void)
 	pid_t	pid;
 
 	if ( (pid = fork()) == -1)
-		err_sys("fork error");
+		err_ret("fork error");
 	return(pid);
 }
 
@@ -87,7 +87,7 @@ Malloc(size_t size)
 	void	*ptr;
 
 	if ( (ptr = malloc(size)) == NULL)
-		err_sys("malloc error");
+		err_ret("malloc error");
 	return(ptr);
 }
 
@@ -108,7 +108,7 @@ Mmap(void *addr, size_t len, int prot, int flags, int fd, off_t offset)
 	void	*ptr;
 
 	if ( (ptr = mmap(addr, len, prot, flags, fd, offset)) == ((void *) -1))
-		err_sys("mmap error");
+		err_ret("mmap error");
 	return(ptr);
 }
 
@@ -118,7 +118,7 @@ Open(const char *pathname, int oflag, mode_t mode)
 	int		fd;
 
 	if ( (fd = open(pathname, oflag, mode)) == -1)
-		//err_sys("open error for %s", pathname);
+		//err_ret("open error for %s", pathname);
 	return(fd);
 }
 
@@ -126,7 +126,7 @@ void
 Pipe(int *fds)
 {
 	if (pipe(fds) < 0)
-		err_sys("pipe error");
+		err_ret("pipe error");
 }
 
 ssize_t
@@ -135,7 +135,7 @@ Read(int fd, void *ptr, size_t nbytes)
 	ssize_t		n;
 
 	if ( (n = read(fd, ptr, nbytes)) == -1)
-		err_sys("read error");
+		err_ret("read error");
 	return(n);
 }
 
@@ -143,28 +143,28 @@ void
 Sigaddset(sigset_t *set, int signo)
 {
 	if (sigaddset(set, signo) == -1)
-		err_sys("sigaddset error");
+		err_ret("sigaddset error");
 }
 
 void
 Sigdelset(sigset_t *set, int signo)
 {
 	if (sigdelset(set, signo) == -1)
-		err_sys("sigdelset error");
+		err_ret("sigdelset error");
 }
 
 void
 Sigemptyset(sigset_t *set)
 {
 	if (sigemptyset(set) == -1)
-		err_sys("sigemptyset error");
+		err_ret("sigemptyset error");
 }
 
 void
 Sigfillset(sigset_t *set)
 {
 	if (sigfillset(set) == -1)
-		err_sys("sigfillset error");
+		err_ret("sigfillset error");
 }
 
 int
@@ -173,7 +173,7 @@ Sigismember(const sigset_t *set, int signo)
 	int		n;
 
 	if ( (n = sigismember(set, signo)) == -1)
-		err_sys("sigismember error");
+		err_ret("sigismember error");
 	return(n);
 }
 
@@ -181,14 +181,14 @@ void
 Sigpending(sigset_t *set)
 {
 	if (sigpending(set) == -1)
-		err_sys("sigpending error");
+		err_ret("sigpending error");
 }
 
 void
 Sigprocmask(int how, const sigset_t *set, sigset_t *oset)
 {
 	if (sigprocmask(how, set, oset) == -1)
-		err_sys("sigprocmask error");
+		err_ret("sigprocmask error");
 }
 
 char *
@@ -197,7 +197,7 @@ Strdup(const char *str)
 	char	*ptr;
 
 	if ( (ptr = strdup(str)) == NULL)
-		err_sys("strdup error");
+		err_ret("strdup error");
 	return(ptr);
 }
 
@@ -208,7 +208,7 @@ Sysconf(int name)
 
 	errno = 0;		/* in case sysconf() does not change this */
 	if ( (val = sysconf(name)) == -1)
-		err_sys("sysconf error");
+		err_ret("sysconf error");
 	return(val);
 }
 
@@ -218,7 +218,7 @@ Sysctl(int *name, u_int namelen, void *oldp, size_t *oldlenp,
 	   void *newp, size_t newlen)
 {
 	if (sysctl(name, namelen, oldp, oldlenp, newp, newlen) == -1)
-		err_sys("sysctl error");
+		err_ret("sysctl error");
 }
 #endif
 
@@ -226,7 +226,7 @@ void
 Unlink(const char *pathname)
 {
 	if (unlink(pathname) == -1);
-		//err_sys("unlink error for %s", pathname);
+		//err_ret("unlink error for %s", pathname);
 }
 
 pid_t
@@ -235,7 +235,7 @@ Wait(int *iptr)
 	pid_t	pid;
 
 	if ( (pid = wait(iptr)) == -1)
-		err_sys("wait error");
+		err_ret("wait error");
 	return(pid);
 }
 
@@ -245,11 +245,11 @@ Waitpid(pid_t pid, int *iptr, int options)
 	pid_t	retpid;
 
 	if ( (retpid = waitpid(pid, iptr, options)) == -1)
-		err_sys("waitpid error");
+		err_ret("waitpid error");
 	return(retpid);
 }
 
-void
+int
 Write(int fd, void *ptr, size_t nbytes)
 {
 	int nwrite = 0;
@@ -258,10 +258,11 @@ Write(int fd, void *ptr, size_t nbytes)
 			if(errno == EINTR | errno == EAGAIN)
 				continue;
 			else
-				err_sys("write error");
+				err_ret("write error");
 		}else
 			break;
 	}
+	return nwrite;
 }
 
 int
@@ -269,7 +270,7 @@ Epoll_create()
 {
 	int epollfd;
 	if((epollfd = epoll_create( 10 )) < 0)
-		err_sys("Epoll create error");
+		err_ret("Epoll create error");
 	return epollfd;
 }
 void
@@ -277,7 +278,7 @@ Epoll_ctl(int epfd,int op,int fd,struct epoll_event *event)
 {
 	int ret;
 	if((ret = epoll_ctl(epfd, op, fd, event) < 0)){
-		err_sys("epoll ctl");
+		err_ret("epoll ctl");
 	}
 	return;
 }
@@ -288,7 +289,7 @@ Epoll_wait(int epollfd,struct epoll_event* events,\
 	int event_num;
 	if((event_num = epoll_wait(epollfd, events, maxevents, timeout)) < 0){
 		if(errno == EBADF | errno == EFAULT)
-		err_sys("Epoll_wait error");
+		err_ret("Epoll_wait error");
 	}
 	return event_num;
 }

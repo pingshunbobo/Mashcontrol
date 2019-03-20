@@ -2,7 +2,7 @@
 #define MAX_FD 65535
 #define MAX_EVENT_NUMBER 10000
 
-enum MASH_DATA_TYPE {MASH_CMD, MASH_DATA, MASH_UNKNOW};
+enum MASH_DATA_TYPE {MASH_CMD, MASH_INFO, MASH_DATA, MASH_UNKNOW};
 enum MASH_STATUS {CMD, CLI, INTERFACE};
 
 struct mashdata
@@ -11,7 +11,8 @@ struct mashdata
         int connfd;
 	int role;
 	enum MASH_STATUS status;
-	struct sockaddr_in client;
+	struct sockaddr_in client_pub;
+	char client_pri[16];
         int nrequest, nreply;
         char request[REPLY_SIZE];
         char reply[REPLY_SIZE];

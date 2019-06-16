@@ -209,8 +209,8 @@ struct if_nameindex {
 			/* prototypes for our own library functions */
 int		 connect_nonb(int, const SA *, socklen_t, int);
 int		 connect_timeo(int, const SA *, socklen_t, int);
-void	 daemon_init(const char *, int);
-void	 daemon_inetd(const char *, int);
+//void	 daemon_init(const char *, int);
+//void	 daemon_inetd(const char *, int);
 void	 dg_cli(FILE *, int, const SA *, socklen_t);
 void	 dg_echo(int, SA *, socklen_t);
 char	*gf_time(void);

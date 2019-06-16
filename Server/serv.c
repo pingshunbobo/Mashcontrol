@@ -16,7 +16,7 @@ int main(int argc, char **argv)
 	struct epoll_event events[MAX_EVENT_NUMBER];
 
 	struct mashdata * coredata = \
-		malloc(1024 * sizeof(struct mashdata));
+		malloc(MAX_CLIENT_NUM * sizeof(struct mashdata));
 	listenfd = Tcp_listen(NULL, "19293", &addrlen);
 	epollfd = Epoll_create( 5 );
 	addevent(epollfd, listenfd, false);
@@ -40,16 +40,18 @@ int main(int argc, char **argv)
 				mash_init(coredata, connfd, client_address);
 				addevent(epollfd, connfd, false);
 			}else if( events[i].events & EPOLLIN ){
-				if(!mash_read(coredata, sockfd)){
-					/* Closed sockfd will be removed automaticly from epollfd */
-					mash_close(coredata, sockfd);
+				if(mash_read(coredata, sockfd) > 0){
+					mash_process(coredata, sockfd, epollfd);
+					modevent(epollfd, sockfd, EPOLLIN);
 					continue;
-				}
-				mash_process(coredata, sockfd, epollfd);
-				modevent(epollfd, sockfd, EPOLLIN);
+				}else
+					mash_close(coredata, sockfd);
 			}else if( events[i].events & EPOLLOUT ){
-				mash_write(coredata, sockfd);
-				modevent(epollfd, sockfd, EPOLLIN);
+				if(mash_write(coredata, sockfd) > 0){
+					modevent(epollfd, sockfd, EPOLLIN);
+                                        continue;
+				}else
+					mash_close(coredata, sockfd);
 			}else if( events[i].events & ( EPOLLRDHUP | EPOLLHUP | EPOLLERR ) ){
 				delevent(epollfd, sockfd);
 				close(sockfd);

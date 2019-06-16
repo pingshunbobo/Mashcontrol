@@ -102,6 +102,7 @@ reconnect:
 	goto connect;
 
 restart:
+	kill(pid, SIGKILL);
 	client_stat = STANDBY;
 	Close(client_fd);
 	sleep(5);

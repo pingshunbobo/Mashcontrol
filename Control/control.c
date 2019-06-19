@@ -4,6 +4,7 @@
 #include "unp.h"
 
 #define	BUF_SIZE	16384		/* max #bytes to request from server */
+enum CONTROL_STATUS {MASHCMD, INTERFACE};
 
 static void set_noecho(int fd)		/* turn off echo (for slave pty) */
 {
@@ -34,6 +35,7 @@ int main(int argc, char **argv)
 	//sockfd = Tcp_connect(argv[1], argv[2]);
 	sockfd = Tcp_connect("127.0.0.1", "19293");
 
+	enum CONTROL_STATUS  control_stat = MASHCMD;
 	/*
 	 login first.
 	*/
@@ -41,7 +43,6 @@ int main(int argc, char **argv)
 	Write(sockfd, request, 12);
 
 	FD_ZERO(&rset);
-	/*  parent process  */
 	while(1){
 		FD_SET(sockfd, &rset);
 		FD_SET(STDIN_FILENO, &rset);
@@ -50,17 +51,21 @@ int main(int argc, char **argv)
 			memset(reply, '\0', BUF_SIZE);
 			if ( (nbytes = read(sockfd, reply, BUF_SIZE)) <= 0){
 				printf("server returned %d bytes error %s\n", nbytes, strerror(errno));
-				close(sockfd);
-				exit(1);
+				break;
 			}
 
 			if (writen(STDOUT_FILENO, reply, nbytes) != nbytes)
 				printf("writen stdout error.\n");
+			if(!strncmp(reply, "Into interface mode:\n", 21))
+				control_stat = INTERFACE;
+			if(!strncmp(reply, "Into mashcmd mode:\n", 19))
+				control_stat = MASHCMD;
+				
 		}
 		if(FD_ISSET(STDIN_FILENO, &rset)){
 			/* Add Magic code to message! */
 			memcpy(request, "Mashcmd:", 8);
-			if ( (nbytes = read(STDIN_FILENO, request + 8, BUFFSIZE)) < 0)
+			if ( (nbytes = read(STDIN_FILENO, request + 8, BUF_SIZE)) < 0)
 				break;
 			//printf("read %d bytes from stdin : %s\n", nbytes, reply);
 
@@ -70,5 +75,5 @@ int main(int argc, char **argv)
 		}
 	}
 	Close(sockfd);
-	return 0;
+	exit(1);
 }

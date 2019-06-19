@@ -154,6 +154,7 @@ int mash_cmd(struct mashdata *data, int admin_sock, int epollfd)
 	/* check mashcmd command */
 	if(!strncmp(cmd, "mashcmd", 7)){
 		data[admin_sock].status = CMD;
+		write(admin_sock, "Into cmd mode:\n", 15);
 		return 1;
 	}
 	if(!strncmp(cmd, "mashcli", 7)){
@@ -167,17 +168,18 @@ int mash_cmd(struct mashdata *data, int admin_sock, int epollfd)
 	}
 	if(!strncmp(cmd, "interface", 9)){
 		if( selected_num( data , admin_sock) != 1){
-			nbytes = snprintf(data[admin_sock].reply, 1024,\
+			nbytes = snprintf(data[admin_sock].reply, 1024, \
 				"Error: Please choose only one interface.\r\n");
 			Write(admin_sock, data[admin_sock].reply, nbytes);
 		}else{
-			/* Loop search for the selected client*/
+			/* Loop search for the selected client */
 			for(id = 0; id < MAX_CLIENT_NUM; ++id){
-                		if( data[id].selected == admin_sock){
-					nbytes = snprintf(data[id].reply, 1024,\
+                		if( data[id].selected == admin_sock ){
+					nbytes = snprintf(data[id].reply, 1024, \
 						"interface!");
 					data[id].nreply = 10;
 					modevent(epollfd, id, EPOLLOUT);
+					data[id].status = INTERFACE;
                 		}
         		}
 			data[admin_sock].status = INTERFACE;
@@ -238,9 +240,9 @@ int mash_console(struct mashdata *data, int admin_sock, int epollfd)
 	if(mash_auth(data + admin_sock)){
 		mash_cmd(data, admin_sock, epollfd);
 		if(CLI == data[admin_sock].status)
-			write(admin_sock, "mashcli#", 8);
+			write(admin_sock, "[mashcli]#", 10);
 		else if(CMD == data[admin_sock].status)
-			write(admin_sock, "mashcmd%", 8);
+			write(admin_sock, "[mashcmd]%", 10);
 	}else
 		mash_close(data, admin_sock);
 	return 0;
@@ -251,6 +253,7 @@ int mash_init(struct mashdata *data, int sockfd, struct sockaddr_in client_addr)
 	setnonblocking(sockfd);
 	data[sockfd].connfd = sockfd;
 	data[sockfd].role = 1;
+	data[sockfd].status = CMD;
 	data[sockfd].nrequest = 0;
 	data[sockfd].nreply = 0;
 	memset(data[sockfd].request, '\0', REPLY_SIZE);
@@ -313,19 +316,20 @@ int mash_write(struct mashdata *data, int sockfd)
 
 int mash_close(struct mashdata *data, int sockfd)
 {
-	int i = 0;
+	int i;
 	int admin_id = 0;
 	if(data[sockfd].role == 1){
 		admin_id = data[sockfd].selected;
 		if( admin_id ){
 			data[admin_id].status = CMD;
-			Write(admin_id, "client closed \nmashcmd%", 25);
+			Write(admin_id, "client closed \n[mashcmd]%", 25);
 		}
 	}else if( data[sockfd].role == 9 ){
 		admin_id = sockfd;
 		for(i = 0; i < 10; ++i){
 			if(data[i].role == 1 && data[i].selected == admin_id){
 				data[i].selected = 0;
+				data[i].status = CMD;
                 	}
         	}
 	}

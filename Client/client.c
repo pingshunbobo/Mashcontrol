@@ -27,14 +27,14 @@ int main(int argc, char **argv)
 	int	nbytes;
 	int	logined;
 	char 	slave_name[20];
-	pid_t	pid = 0;
+	pid_t	work_pid = 0;
 	fd_set	rset;
 
 	char	request[BUF_SIZE];
 	char	reply[BUF_SIZE];
 
 	enum CLIENT_STATUS  client_stat = STANDBY;
-	daemon_init(&pid);
+	daemon_init(&work_pid);
 
 connect:
 	client_fd = Tcp_connect(SERVER_ADDR, SERVER_PORT);
@@ -67,8 +67,8 @@ connect:
 			nbytes = read(client_fd, request, BUF_SIZE);
 			if ( nbytes <= 0 ){
 				/* read data error! */
-				printf("server closed client_fd %s", nbytes, strerror(errno));
-				goto reconnect;
+				//printf("server closed connection, %s", strerror(errno)); fflush(stdout);
+				goto restart;
 			}
 			if ( client_stat == WORK ){
 				/* write content which from server to the pty bash */
@@ -76,11 +76,14 @@ connect:
 					printf("writen error to master pty");
 				FD_SET(fdm, &rset);
 			}else if( client_stat == STANDBY ){
-				if( !strncmp(request, "interface!", 10) )
-				//printf("create work!\n"); fflush(stdout);
-				create_work(&pid, &fdm);
-				FD_SET(fdm, &rset);
-				client_stat = WORK;
+				if( !strncmp(request, "interface!", 10) ){
+					if( work_pid == 0 ){
+						//printf("create work!\n"); fflush(stdout);
+						create_work(&work_pid, &fdm);
+						FD_SET(fdm, &rset);
+					}
+					client_stat = WORK;
+				}
 			}
 		}
 		if(FD_ISSET(fdm, &rset)){
@@ -91,20 +94,21 @@ connect:
 					continue;
 				else
 					goto restart;
-			}else
+			}else {
 				nbytes = write(client_fd, reply, nbytes);
+				if( nbytes < 0 )
+					goto restart;
+			}
 		}
 	} /* end loop */
 
-reconnect:
-	Close(client_fd);
-	sleep(5);
-	goto connect;
-
 restart:
-	kill(pid, SIGKILL);
+	kill(work_pid, SIGKILL);
+	waitpid(work_pid, 0, 0);
+	work_pid = 0;
 	client_stat = STANDBY;
 	Close(client_fd);
+        Close(fdm);
 	sleep(5);
 	goto connect;
 }

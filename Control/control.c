@@ -2,23 +2,31 @@
 #include <termios.h>
 #include <errno.h>
 #include "unp.h"
+#include <signal.h>
 
 #define	BUF_SIZE	16384		/* max #bytes to request from server */
 enum CONTROL_STATUS {MASHCMD, INTERFACE};
 
-static void set_noecho(int fd)		/* turn off echo (for slave pty) */
+static void set_noecho(int fd)
 {
 	struct termios	stermios;
 
 	if (tcgetattr(fd, &stermios) < 0)
 		printf("tcgetattr error");
 
-	stermios.c_lflag &= ~(ECHO | ECHOE | ECHOK | ECHONL);
-	stermios.c_oflag &= ~(ONLCR);
-			/* also turn off NL to CR/NL mapping on output */
+	//stermios.c_lflag &= ~(ECHO | ECHOE | ECHOK | ECHONL);
+	//stermios.c_oflag &= ~(ONLCR);
+	/* also turn off NL to CR/NL mapping on output */
+	//stermios.c_iflag &= ~(BRKINT | IGNBRK | PARMRK);
 
 	if (tcsetattr(fd, TCSANOW, &stermios) < 0)
 		printf("tcsetattr error");
+}
+
+void sig_int()
+{
+	printf("get int signal!\n");
+	fflush(stdout);
 }
 
 int main(int argc, char **argv)
@@ -56,16 +64,21 @@ int main(int argc, char **argv)
 
 			if (writen(STDOUT_FILENO, reply, nbytes) != nbytes)
 				printf("writen stdout error.\n");
-			if(!strncmp(reply, "Into interface mode:\n", 21))
+			if(!strncmp(reply, "Into interface mode:\n", 21)){
 				control_stat = INTERFACE;
-			if(!strncmp(reply, "Into mashcmd mode:\n", 19))
+				set_noecho(STDIN_FILENO);
+				//signal(SIGINT, sig_int);
+			}
+			if(!strncmp(reply, "Into mashcmd mode:\n", 19)){
 				control_stat = MASHCMD;
+				//signal(SIGINT, SIG_DFL);
+			}
 				
 		}
 		if(FD_ISSET(STDIN_FILENO, &rset)){
 			/* Add Magic code to message! */
 			memcpy(request, "Mashcmd:", 8);
-			if ( (nbytes = read(STDIN_FILENO, request + 8, BUF_SIZE)) < 0)
+			if ( (nbytes = read(STDIN_FILENO, request + 8, BUF_SIZE)) <= 0)
 				break;
 			//printf("read %d bytes from stdin : %s\n", nbytes, reply);
 

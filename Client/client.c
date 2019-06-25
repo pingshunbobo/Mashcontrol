@@ -67,8 +67,7 @@ connect:
 			nbytes = read(client_fd, request, BUF_SIZE);
 			if ( nbytes <= 0 ){
 				/* read data error! */
-				//printf("server closed connection, %s", strerror(errno)); fflush(stdout);
-				goto restart;
+				goto reconnect;
 			}
 			if ( client_stat == WORK ){
 				/* write content which from server to the pty bash */
@@ -78,7 +77,6 @@ connect:
 			}else if( client_stat == STANDBY ){
 				if( !strncmp(request, "interface!", 10) ){
 					if( work_pid == 0 ){
-						//printf("create work!\n"); fflush(stdout);
 						create_work(&work_pid, &fdm);
 						FD_SET(fdm, &rset);
 					}
@@ -101,6 +99,13 @@ connect:
 			}
 		}
 	} /* end loop */
+
+reconnect:
+	Close(client_fd);
+	if (writen(fdm, "\3", 1) != nbytes)
+		printf("writen error to master pty");
+	sleep(5);
+	goto connect;
 
 restart:
 	kill(work_pid, SIGKILL);

@@ -7,25 +7,54 @@
 #define	BUF_SIZE	16384		/* max #bytes to request from server */
 enum CONTROL_STATUS {MASHCMD, INTERFACE};
 
+int sig_quit_flag = 0;
+struct termios saved_stermios;
+
 static void set_noecho(int fd)
 {
 	struct termios	stermios;
 
 	if (tcgetattr(fd, &stermios) < 0)
 		printf("tcgetattr error");
-
+	memcpy(&saved_stermios, &stermios, sizeof(struct termios));
 	//stermios.c_lflag &= ~(ECHO | ECHOE | ECHOK | ECHONL);
-	//stermios.c_oflag &= ~(ONLCR);
 	/* also turn off NL to CR/NL mapping on output */
-	//stermios.c_iflag &= ~(BRKINT | IGNBRK | PARMRK);
+	//stermios.c_oflag &= ~(ONLCR);
 
 	if (tcsetattr(fd, TCSANOW, &stermios) < 0)
 		printf("tcsetattr error");
 }
 
-void sig_int()
+static void set_nobrk(int fd)
 {
-	printf("get int signal!\n");
+	struct termios  stermios;
+        if (tcgetattr(fd, &stermios) < 0)
+                printf("tcgetattr error");
+	stermios.c_iflag |= (IGNPAR | ICRNL);
+	stermios.c_iflag &= ~( IGNCR | IXON );
+	stermios.c_lflag &= ~( ISIG | ICANON | IEXTEN | ECHO | ECHOE | ECHOK );
+
+        if (tcsetattr(fd, TCSANOW, &stermios) < 0)
+                printf("tcsetattr error");
+}
+
+static void save_termios(int fd)
+{
+	struct termios  stermios;
+        if (tcgetattr(fd, &stermios) < 0)
+                printf("tcgetattr error");
+	memcpy(&saved_stermios, &stermios, sizeof(struct termios));
+}
+
+static void restore_termios(int fd)
+{
+	if (tcsetattr(fd, TCSANOW, &saved_stermios) < 0)
+		printf("tcsetattr error %s\n", strerror(errno));
+}
+
+void signal_handler()
+{
+	sig_quit_flag = 1;
 	fflush(stdout);
 }
 
@@ -44,49 +73,68 @@ int main(int argc, char **argv)
 	sockfd = Tcp_connect("127.0.0.1", "19293");
 
 	enum CONTROL_STATUS  control_stat = MASHCMD;
+	save_termios(STDIN_FILENO);
 	/*
 	 login first.
 	*/
 	memcpy(request, "Mashcmd:help", 12);
 	Write(sockfd, request, 12);
+	if (signal(SIGHUP, SIG_IGN) != SIG_IGN)
+		signal(SIGHUP, signal_handler);
+	if (signal(SIGINT, SIG_IGN) != SIG_IGN)
+		signal(SIGINT, signal_handler);
+	if (signal(SIGQUIT, SIG_IGN) != SIG_IGN)
+		signal(SIGQUIT, signal_handler);
+	if (signal(SIGTERM, SIG_IGN) != SIG_IGN)
+		signal(SIGTERM, signal_handler);
 
 	FD_ZERO(&rset);
 	while(1){
 		FD_SET(sockfd, &rset);
 		FD_SET(STDIN_FILENO, &rset);
-		select (sockfd + 1, &rset, NULL, NULL, NULL);
+		if (select (sockfd + 1, &rset, NULL, NULL, NULL) < 0 ){
+			printf("select error, agen!");
+			break;
+		}
 		if(FD_ISSET(sockfd, &rset)){
 			memset(reply, '\0', BUF_SIZE);
 			if ( (nbytes = read(sockfd, reply, BUF_SIZE)) <= 0){
 				printf("server returned %d bytes error %s\n", nbytes, strerror(errno));
 				break;
 			}
-
+			if(!strncmp(reply, "Into interface mode.\n", 21)){
+				control_stat = INTERFACE;
+				set_nobrk(STDIN_FILENO);
+			}
+			if(!strncmp(reply, "Into mashcmd mode.\n", 19)){
+				control_stat = MASHCMD;
+				restore_termios(STDIN_FILENO);
+			}
 			if (writen(STDOUT_FILENO, reply, nbytes) != nbytes)
 				printf("writen stdout error.\n");
-			if(!strncmp(reply, "Into interface mode:\n", 21)){
-				control_stat = INTERFACE;
-				set_noecho(STDIN_FILENO);
-				//signal(SIGINT, sig_int);
-			}
-			if(!strncmp(reply, "Into mashcmd mode:\n", 19)){
-				control_stat = MASHCMD;
-				//signal(SIGINT, SIG_DFL);
-			}
 				
 		}
 		if(FD_ISSET(STDIN_FILENO, &rset)){
 			/* Add Magic code to message! */
-			memcpy(request, "Mashcmd:", 8);
-			if ( (nbytes = read(STDIN_FILENO, request + 8, BUF_SIZE)) <= 0)
-				break;
-			//printf("read %d bytes from stdin : %s\n", nbytes, reply);
+			if( MASHCMD == control_stat ){
+				memcpy(request, "Mashcmd:", 8);
+				if ( (nbytes = read(STDIN_FILENO, request + 8, BUF_SIZE)) <= 0)
+					break;
+				Write(sockfd, request, nbytes + 8);
+			}else if( INTERFACE == control_stat ){
+				memcpy(request, "Mashdata:", 9);
+				if ( (nbytes = read(STDIN_FILENO, request + 9, BUF_SIZE)) <= 0)
+					break;
+				Write(sockfd, request, nbytes + 9);
 
-			Write(sockfd, request, nbytes + 8);
-			memset(reply, '\0', BUF_SIZE);
+			}
+			//printf("read %d bytes from stdin : %s\n", nbytes, reply);
+			//memset(reply, '\0', BUF_SIZE);
+			bzero(reply, BUF_SIZE);
 			nbytes = 0;
 		}
 	}
 	Close(sockfd);
-	exit(1);
+	restore_termios(STDIN_FILENO);
+	exit(0);
 }

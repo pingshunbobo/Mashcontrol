@@ -9,7 +9,7 @@
 #define SERVER_ADDR "mashcontrol.pingshunbobo.com"
 #define SERVER_PORT "19293"
 
-enum CLIENT_STATUS {WORK, STANDBY};
+enum CLIENT_STATUS {INTERFACE, STANDBY};
 
 void server(char *host, char *port);
 
@@ -66,21 +66,20 @@ connect:
 			memset(request, '\0', BUF_SIZE);
 			nbytes = read(client_fd, request, BUF_SIZE);
 			if ( nbytes <= 0 ){
-				/* read data error! */
-				goto reconnect;
+				goto reconnect;	/* read error! */
 			}
-			if ( client_stat == WORK ){
+			if ( client_stat == INTERFACE ){
 				/* write content which from server to the pty bash */
 				if (writen(fdm, request, nbytes) != nbytes)
 					printf("writen error to master pty");
 				FD_SET(fdm, &rset);
 			}else if( client_stat == STANDBY ){
-				if( !strncmp(request, "interface!", 10) ){
+				if( !strncmp(request, "mashcmd:interface!", 18) ){
 					if( work_pid == 0 ){
 						create_work(&work_pid, &fdm);
 						FD_SET(fdm, &rset);
 					}
-					client_stat = WORK;
+					client_stat = INTERFACE;
 				}
 			}
 		}
@@ -90,9 +89,17 @@ connect:
 			if( nbytes <= 0 ){
 				if (errno == EAGAIN)
 					continue;
-				else
-					goto restart;
+				else{
+					work_pid = 0;
+					client_stat = STANDBY;
+					FD_CLR(fdm, &rset);
+					close(fdm);
+					memcpy(request, "Mashcmd:outinterface!", 21);
+					Write(client_fd, request, 21);
+					continue;
+				}
 			}else {
+				/* Copy reply data to server. */
 				nbytes = write(client_fd, reply, nbytes);
 				if( nbytes < 0 )
 					goto restart;

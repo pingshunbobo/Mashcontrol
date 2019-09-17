@@ -40,19 +40,19 @@ int ptys_open(char* pts_name)
 	return fds;
 }
 
-pid_t pty_fork(int *ptyfdm, char *slave_name, int slave_namesz,
-			const struct termios * slave_termios,
-			const struct winsize * slave_winsize)
+pid_t pty_fork(int *ptyfdm, char *slave_name, int slave_namesize,
+			const struct termios *slave_termios,
+			const struct winsize *slave_winsize)
 {
 	int fdm, fds;
 	pid_t pid;
 	char pts_name[20];
 
 	if((fdm = ptym_open(pts_name, sizeof(pts_name))) < 0)
-		printf("can`t open master pty : %s",pts_name);
+		printf("Can`t open master pty : %s", pts_name);
 	if(slave_name != NULL){
-		strncpy(slave_name, pts_name, slave_namesz);
-		slave_name[slave_namesz - 1] = '\0';
+		strncpy(slave_name, pts_name, slave_namesize);
+		slave_name[slave_namesize - 1] = '\0';
 	}
 
 	if((pid = fork()) < 0){
@@ -63,9 +63,7 @@ pid_t pty_fork(int *ptyfdm, char *slave_name, int slave_namesz,
 
 		if((fds = ptys_open(pts_name)) < 0)
 			printf("can`t open slave pty");
-		/*
-		 after open ptys we can close the fdm file descriper in the child process.
-		*/
+		/* Close the fdm file descriper in the child process. */
 		close(fdm);
 
 		if(slave_termios != NULL){
@@ -83,8 +81,7 @@ pid_t pty_fork(int *ptyfdm, char *slave_name, int slave_namesz,
 		if(dup2(fds, STDERR_FILENO) != STDIN_FILENO)
 			printf("dup2 error to stderr! ");
 		if(fds != STDIN_FILENO && fds != STDIN_FILENO && fds != STDIN_FILENO)
-
-		return 0;
+			return 0;
 	}else{
 		*ptyfdm = fdm;
 		return pid;

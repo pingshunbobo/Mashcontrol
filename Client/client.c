@@ -4,12 +4,16 @@
 #include <signal.h>
 #include <termios.h>
 #include <errno.h>
+#include "mash.h"
 
-#define	BUF_SIZE    16384	/* max #bytes to request from server */
 #define SERVER_ADDR "mashcontrol.pingshunbobo.com"
 #define SERVER_PORT "19293"
 
-enum CLIENT_STATUS {INTERFACE, STANDBY};
+enum CLIENT_STATUS  client_stat = STANDBY;
+int	client_fd = 0;
+int	fdm = 0;
+pid_t	work_pid = 0;
+fd_set	rset;
 
 void server(char *host, char *port);
 
@@ -23,17 +27,14 @@ int setnonblocking(int fd)
 
 int main(int argc, char **argv)
 {
-	int	client_fd, fdm;
 	int	nbytes;
 	int	logined;
 	char 	slave_name[20];
-	pid_t	work_pid = 0;
-	fd_set	rset;
+	char	buf[BUF_SIZE];
 
 	char	request[BUF_SIZE];
 	char	reply[BUF_SIZE];
 
-	enum CLIENT_STATUS  client_stat = STANDBY;
 	daemon_init(&work_pid);
 
 connect:
@@ -47,7 +48,6 @@ connect:
 		fprintf(stderr,"Get client information failed,=%d.\n", client_fd);
 		return 0;
 	}
-	char buf[16];
 	if((inet_ntop(addr.sin_family, &addr.sin_addr, buf, addrlen)) == NULL){
 		fprintf(stderr,"Get client information failed, fd=%d .\n", client_fd);        
 		return 0;
@@ -68,20 +68,12 @@ connect:
 			if ( nbytes <= 0 ){
 				goto reconnect;	/* read error! */
 			}
-			if ( client_stat == INTERFACE ){
-				/* write content which from server to the pty bash */
-				if (writen(fdm, request, nbytes) != nbytes)
-					printf("writen error to master pty");
-				FD_SET(fdm, &rset);
-			}else if( client_stat == STANDBY ){
-				if( !strncmp(request, "mashcmd:interface!", 18) ){
-					if( work_pid == 0 ){
-						create_work(&work_pid, &fdm);
-						FD_SET(fdm, &rset);
-					}
-					client_stat = INTERFACE;
-				}
-			}
+			if(MASH_CTL == mash_type(request, nbytes)){
+				mash_proc_ctl(request, nbytes);
+			}else if(MASH_DATA == mash_type(request, nbytes)){
+				mash_proc_data(request, nbytes);
+			}else
+				return -1;
 		}
 		if(FD_ISSET(fdm, &rset)){
 			memset(reply, '\0', BUF_SIZE);
@@ -94,13 +86,12 @@ connect:
 					client_stat = STANDBY;
 					FD_CLR(fdm, &rset);
 					close(fdm);
-					memcpy(request, "Mashcmd:outinterface!", 21);
-					Write(client_fd, request, 21);
+					mash_send_ctl("standby!", 8);
 					continue;
 				}
 			}else {
 				/* Copy reply data to server. */
-				nbytes = write(client_fd, reply, nbytes);
+				nbytes = mash_send_data(reply, nbytes);
 				if( nbytes < 0 )
 					goto restart;
 			}

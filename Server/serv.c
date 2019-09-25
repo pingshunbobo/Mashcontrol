@@ -17,11 +17,11 @@ int main(int argc, char **argv)
 
 	struct mashdata * coredata = \
 		malloc(MAX_CLIENT_NUM * sizeof(struct mashdata));
+	memset(coredata, '\0', MAX_CLIENT_NUM * sizeof(struct mashdata));
 	listenfd = Tcp_listen(NULL, "19293", &addrlen);
 	epollfd = Epoll_create( 5 );
 	addevent(epollfd, listenfd, false);
 	addevent(epollfd, STDIN_FILENO, false);
-
 	/* loop process io events. */
 	for ( ; ; ){
 		if((number = Epoll_wait( epollfd, events, MAX_EVENT_NUMBER, -1 )) <= -1)
@@ -36,7 +36,7 @@ int main(int argc, char **argv)
 				if ( connfd < 0 )
 					continue;
 
-				/* Connect success ,now go to initial the mash data struct*/
+				/* If Connect success initial the mash data struct*/
 				mash_init(coredata, connfd, client_address);
 				addevent(epollfd, connfd, false);
 			}else if( events[i].events & EPOLLIN ){

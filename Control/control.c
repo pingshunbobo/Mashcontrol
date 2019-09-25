@@ -3,54 +3,14 @@
 #include <errno.h>
 #include "unp.h"
 #include <signal.h>
+#include "mash.h"
 
 #define	BUF_SIZE	16384		/* max #bytes to request from server */
-enum CONTROL_STATUS {MASHCMD, INTERFACE};
 
-int sig_quit_flag = 0;
-struct termios saved_stermios;
-
-static void set_noecho(int fd)
-{
-	struct termios	stermios;
-
-	if (tcgetattr(fd, &stermios) < 0)
-		printf("tcgetattr error");
-	memcpy(&saved_stermios, &stermios, sizeof(struct termios));
-	//stermios.c_lflag &= ~(ECHO | ECHOE | ECHOK | ECHONL);
-	/* also turn off NL to CR/NL mapping on output */
-	//stermios.c_oflag &= ~(ONLCR);
-
-	if (tcsetattr(fd, TCSANOW, &stermios) < 0)
-		printf("tcsetattr error");
-}
-
-static void set_nobrk(int fd)
-{
-	struct termios  stermios;
-        if (tcgetattr(fd, &stermios) < 0)
-                printf("tcgetattr error");
-	stermios.c_iflag |= (IGNPAR | ICRNL);
-	stermios.c_iflag &= ~( IGNCR | IXON );
-	stermios.c_lflag &= ~( ISIG | ICANON | IEXTEN | ECHO | ECHOE | ECHOK );
-
-        if (tcsetattr(fd, TCSANOW, &stermios) < 0)
-                printf("tcsetattr error");
-}
-
-static void save_termios(int fd)
-{
-	struct termios  stermios;
-        if (tcgetattr(fd, &stermios) < 0)
-                printf("tcgetattr error");
-	memcpy(&saved_stermios, &stermios, sizeof(struct termios));
-}
-
-static void restore_termios(int fd)
-{
-	if (tcsetattr(fd, TCSANOW, &saved_stermios) < 0)
-		printf("tcsetattr error %s\n", strerror(errno));
-}
+int	sockfd = 0;
+int	sig_quit_flag = 0;
+struct	termios	saved_stermios;
+enum	CONTROL_STATUS	control_stat = MASHCTL;
 
 void signal_handler()
 {
@@ -60,7 +20,6 @@ void signal_handler()
 
 int main(int argc, char **argv)
 {
-	int	sockfd;
 	int	nbytes;
 	fd_set	rset;	
 
@@ -72,7 +31,6 @@ int main(int argc, char **argv)
 	//sockfd = Tcp_connect(argv[1], argv[2]);
 	sockfd = Tcp_connect("127.0.0.1", "19293");
 
-	enum CONTROL_STATUS  control_stat = MASHCMD;
 	save_termios(STDIN_FILENO);
 	/*
 	 login first.
@@ -99,24 +57,24 @@ int main(int argc, char **argv)
 		if(FD_ISSET(sockfd, &rset)){
 			memset(reply, '\0', BUF_SIZE);
 			if ( (nbytes = read(sockfd, reply, BUF_SIZE)) <= 0){
-				printf("server returned %d bytes error %s\n", nbytes, strerror(errno));
+				if( errno == EAGAIN)
+					continue;
+				else
+					//printf("server returned %d bytes error %s\n", nbytes, strerror(errno));
+					printf("\nServer Closed\n");
 				break;
 			}
-			if(!strncmp(reply, "Into interface mode.\n", 21)){
-				control_stat = INTERFACE;
-				set_nobrk(STDIN_FILENO);
+			if( MASH_CTL == mash_type(reply, nbytes)  ){
+				mash_ctl(reply, nbytes);
+			}else if( MASH_NOTE == mash_type(reply, nbytes)  ){
+				mash_note(reply, nbytes);
+			}else if( MASH_DATA == mash_type(reply, nbytes)  ){
+				mash_data(reply, nbytes);
 			}
-			if(!strncmp(reply, "Into mashcmd mode.\n", 19)){
-				control_stat = MASHCMD;
-				restore_termios(STDIN_FILENO);
-			}
-			if (writen(STDOUT_FILENO, reply, nbytes) != nbytes)
-				printf("writen stdout error.\n");
-				
 		}
 		if(FD_ISSET(STDIN_FILENO, &rset)){
 			/* Add Magic code to message! */
-			if( MASHCMD == control_stat ){
+			if( MASHCTL == control_stat ){
 				memcpy(request, "Mashcmd:", 8);
 				if ( (nbytes = read(STDIN_FILENO, request + 8, BUF_SIZE)) <= 0)
 					break;
@@ -128,9 +86,7 @@ int main(int argc, char **argv)
 				Write(sockfd, request, nbytes + 9);
 
 			}
-			//printf("read %d bytes from stdin : %s\n", nbytes, reply);
-			//memset(reply, '\0', BUF_SIZE);
-			bzero(reply, BUF_SIZE);
+			memset(request, '\0', BUF_SIZE);
 			nbytes = 0;
 		}
 	}

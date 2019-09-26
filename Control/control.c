@@ -10,7 +10,7 @@
 int	sockfd = 0;
 int	sig_quit_flag = 0;
 struct	termios	saved_stermios;
-enum	CONTROL_STATUS	control_stat = MASHCTL;
+enum	CONTROL_STATUS	control_stat = MASHCMD;
 
 void signal_handler()
 {
@@ -51,7 +51,7 @@ int main(int argc, char **argv)
 		FD_SET(sockfd, &rset);
 		FD_SET(STDIN_FILENO, &rset);
 		if (select (sockfd + 1, &rset, NULL, NULL, NULL) < 0 ){
-			printf("select error, agen!");
+			printf("select error, agen!\n");
 			break;
 		}
 		if(FD_ISSET(sockfd, &rset)){
@@ -66,6 +66,8 @@ int main(int argc, char **argv)
 			}
 			if( MASH_CTL == mash_type(reply, nbytes)  ){
 				mash_ctl(reply, nbytes);
+			}else if( MASH_CMD == mash_type(reply, nbytes)  ){
+				mash_note(reply, nbytes);
 			}else if( MASH_NOTE == mash_type(reply, nbytes)  ){
 				mash_note(reply, nbytes);
 			}else if( MASH_DATA == mash_type(reply, nbytes)  ){
@@ -74,7 +76,7 @@ int main(int argc, char **argv)
 		}
 		if(FD_ISSET(STDIN_FILENO, &rset)){
 			/* Add Magic code to message! */
-			if( MASHCTL == control_stat ){
+			if( MASHCMD == control_stat ){
 				memcpy(request, "Mashcmd:", 8);
 				if ( (nbytes = read(STDIN_FILENO, request + 8, BUF_SIZE)) <= 0)
 					break;

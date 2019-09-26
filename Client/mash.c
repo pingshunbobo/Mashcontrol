@@ -19,6 +19,8 @@ enum MASH_DATA_TYPE mash_type(char *request, int nbytes)
                 return MASH_INFO;
 	if(!strncmp(request, "Mashdata:", 9))
                 return MASH_DATA;
+	if(!strncmp(request, "Mashheart:", 10))
+                return MASH_HEART;
 	return MASH_UNKNOW;
 }
 
@@ -30,14 +32,19 @@ int mash_proc_ctl(char *request, int nbytes)
 			create_work(&work_pid, &fdm);
 			FD_SET(fdm, &rset);
 		}
+		client_stat = WORK;
 		memcpy(buf, "Mashctl:work!", 13);
 		if (writen(client_fd, buf, 13) != 13){
 			printf("Writen error!");
 			return -1;
 		}
-		client_stat = WORK;
 	}else if( !strncmp(request, "Mashctl:standby!", 16) ){
 		client_stat = STANDBY;
+		memcpy(buf, "Mashctl:standby!", 16);
+		if (writen(client_fd, buf, 16) != 16){
+			printf("Writen error!");
+			return -1;
+		}
 	}else{
 		return -1;
 	}
@@ -53,7 +60,16 @@ int mash_proc_data(char *request, int nbytes)
 		if (writen(fdm, buf, nbytes - 9) != nbytes)
 			printf("writen error to master pty");
 		FD_SET(fdm, &rset);
+	}else {
+		mash_send_ctl("standby!", 8);
+		/* do nothing !*/
 	}
+	return 0;
+}
+
+int mash_heart(char *request, int nbytes)
+{
+	/* update last check time */
 	return 0;
 }
 

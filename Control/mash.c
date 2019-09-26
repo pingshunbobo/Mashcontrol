@@ -41,14 +41,14 @@ enum MASH_DATA_TYPE mash_type(char *reply, int nbytes)
 {
 	if(!strncmp(reply, "Mashctl:", 8))
                 return MASH_CTL;
-	if(!strncmp(reply, "Mashnote:", 9))
-                return MASH_NOTE;
-	if(!strncmp(reply, "Mashinfo:", 9))
-                return MASH_INFO;
 	if(!strncmp(reply, "Mashcmd:", 8))
                 return MASH_CMD;
 	if(!strncmp(reply, "Mashdata:", 9))
                 return MASH_DATA;
+	if(!strncmp(reply, "Mashnote:", 9))
+                return MASH_NOTE;
+	if(!strncmp(reply, "Mashinfo:", 9))
+                return MASH_INFO;
 	return MASH_UNKNOW;
 }
 
@@ -59,7 +59,7 @@ int mash_ctl(char *reply, int nbytes)
 		set_nobrk(STDIN_FILENO);
 	}
 	if(!strncmp(reply + 8, "mashcmd!", 8)){
-		control_stat = MASHCTL;
+		control_stat = MASHCMD;
 		restore_termios(STDIN_FILENO);
 	}
 	return 0;
@@ -67,14 +67,8 @@ int mash_ctl(char *reply, int nbytes)
 
 int mash_cmd(char *reply, int nbytes)
 {
-	if(!strncmp(reply + 8, "interface!", 21)){
-		control_stat = INTERFACE;
-		set_nobrk(STDIN_FILENO);
-	}
-	if(!strncmp(reply + 8, "mashctl!", 19)){
-		control_stat = MASHCTL;
-		restore_termios(STDIN_FILENO);
-	}
+	if (writen(STDOUT_FILENO, reply + 8, nbytes - 8) != nbytes - 9)
+		printf("writen stdout error.\n");
 	return 0;
 }
 

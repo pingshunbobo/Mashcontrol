@@ -4,12 +4,12 @@
 #include	<stdbool.h>
 #include	<sys/epoll.h>
 
+int 	epollfd = 0;
 int main(int argc, char **argv)
 {
 	int	i = 0;
 	int	nread = 0;
 	int 	number = 0;
-	int 	epollfd = 0;
 	int	listenfd = 0;
 	socklen_t addrlen;
 
@@ -24,7 +24,7 @@ int main(int argc, char **argv)
 	addevent(epollfd, STDIN_FILENO, false);
 	/* loop process io events. */
 	for ( ; ; ){
-		if((number = Epoll_wait( epollfd, events, MAX_EVENT_NUMBER, -1 )) <= -1)
+		if( (number = Epoll_wait( epollfd, events, MAX_EVENT_NUMBER, -1 )) <= -1 )
 			continue;
 		for ( i = 0; i < number; i++ ){
 			int sockfd = events[i].data.fd;
@@ -42,25 +42,24 @@ int main(int argc, char **argv)
 			}else if( events[i].events & EPOLLIN ){
 				if(mash_read(coredata, sockfd) > 0){
 					mash_process(coredata, sockfd, epollfd);
-					modevent(epollfd, sockfd, EPOLLIN);
+					//modevent(epollfd, sockfd, EPOLLIN|EPOLLOUT);
 					continue;
 				}else
 					mash_close(coredata, sockfd);
 			}else if( events[i].events & EPOLLOUT ){
-				if(mash_write(coredata, sockfd) > 0){
-					modevent(epollfd, sockfd, EPOLLIN);
-                                        continue;
-				}else
+				if( mash_write(coredata, sockfd) < 0 )
 					mash_close(coredata, sockfd);
+				else
+					modevent(epollfd, sockfd, EPOLLIN);
+				continue;
 			}else if( events[i].events & ( EPOLLRDHUP | EPOLLHUP | EPOLLERR ) ){
-				delevent(epollfd, sockfd);
-				close(sockfd);
+				mash_close(coredata, sockfd);
 			}else{
 				/*anything else happend*/
 			}
 		}//end epoll event scan.
 	}
-	close( epollfd );
-	close( listenfd );
+	close(epollfd);
+	close(listenfd);
 	exit(1);
 }

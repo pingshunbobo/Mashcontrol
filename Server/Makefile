@@ -1,6 +1,6 @@
 CC=gcc
 LIBS=../lib/lib.a
-CFLAGS= -g 
+CFLAGS=-g 
 PROGS =	serv 
 
 all:	${PROGS}
@@ -14,7 +14,7 @@ mash.o: mash.c
 serv.o: serv.c
 	${CC} ${CFLAGS} -c serv.c
 
-tcp_lisen.o:	tcp_listen.c
+tcp_lisen.o: tcp_listen.c
 	${CC} ${CFLAGS} -c tcp_listen.c
 
 CLEANFILES=*.o serv

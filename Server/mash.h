@@ -1,8 +1,8 @@
-#define REPLY_SIZE   4096
+#define BUF_SIZE   4096
 #define MAX_CLIENT_NUM 65535
 #define MAX_EVENT_NUMBER 10000
 
-enum MASH_DATA_TYPE {MASH_CTL, MASH_INFO, MASH_CMD, MASH_DATA, MASH_UNKNOW};
+enum MASH_DATA_TYPE {MASH_HEART, MASH_CTL, MASH_INFO, MASH_DATA, MASH_FILE, MASH_CMD, MASH_UNKNOW};
 enum MASH_STATUS {CMD, CLI, INTERFACE, WORK, STANDBY};
 
 struct mashdata
@@ -14,10 +14,9 @@ struct mashdata
 	struct sockaddr_in client;
 	char client_pub[16];
 	char client_pri[16];
-        int nrequest, nreply;
-        char request[REPLY_SIZE];
-        char reply[REPLY_SIZE];
-	void * data;
+        int nreadbuf, nwritebuf;
+        char readbuf[BUF_SIZE];
+        char writebuf[BUF_SIZE];
 };
 
 int setnonblocking( int fd );

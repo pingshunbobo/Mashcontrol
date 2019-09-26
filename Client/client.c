@@ -13,6 +13,7 @@ enum CLIENT_STATUS  client_stat = STANDBY;
 int	client_fd = 0;
 int	fdm = 0;
 pid_t	work_pid = 0;
+pid_t	heart_pid = 0;
 fd_set	rset;
 
 void server(char *host, char *port);
@@ -39,7 +40,7 @@ int main(int argc, char **argv)
 
 connect:
 	client_fd = Tcp_connect(SERVER_ADDR, SERVER_PORT);
-	setnonblocking(client_fd);
+	heart_pid = setnonblocking(client_fd);
 
 	/* add Client hello info */
 	struct sockaddr_in addr;
@@ -56,6 +57,8 @@ connect:
 	snprintf(reply, 11, "Mashinfo: " );
 	memcpy(reply + 10, buf, 16);
 	nbytes = write(client_fd, reply, 26);
+
+	heart_pid = heartbeat_fork();
 	
 	FD_ZERO(&rset);
 	/*  parent process  */
@@ -72,6 +75,8 @@ connect:
 				mash_proc_ctl(request, nbytes);
 			}else if(MASH_DATA == mash_type(request, nbytes)){
 				mash_proc_data(request, nbytes);
+			}else if(MASH_HEART == mash_type(request, nbytes)){
+				mash_proc_ctl(request, nbytes);
 			}else
 				return -1;
 		}
@@ -100,8 +105,12 @@ connect:
 
 reconnect:
 	Close(client_fd);
-	if (writen(fdm, "\3", 1) != nbytes)
-		printf("writen error to master pty");
+	kill(heart_pid, SIGKILL);
+	waitpid(heart_pid, 0, 0);
+	if( fdm ){
+		if (writen(fdm, "\3", 1) != nbytes)
+			printf("writen error to master pty");
+	}
 	sleep(5);
 	goto connect;
 

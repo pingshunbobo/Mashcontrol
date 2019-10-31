@@ -1,10 +1,15 @@
 #include "unp.h"
-#include <termios.h>
 #include <sys/types.h>
+#include <sys/select.h>
+#include <sys/time.h>
+#include <sys/types.h>
+#include <unistd.h>
 #include <stdlib.h>
 #include <stdio.h>
-#include <errno.h>
-#include <fcntl.h>
+#include "mash.h"
+
+extern fd_set   rset;
+extern enum CLIENT_STATUS  client_stat;
 
 int create_work(int *pid, int *fdm)
 {
@@ -19,7 +24,17 @@ int create_work(int *pid, int *fdm)
 		printf("child process bash exited!\n");
 		exit(0);
         }
-        int cflags = fcntl(*fdm, F_GETFL,0);
+        int cflags = fcntl(*fdm, F_GETFL, 0);
         fcntl(*fdm, F_SETFL, cflags|O_NONBLOCK);
-	return 0;
+	return *pid;
+}
+
+void out_work(char *reply, int *reply_size, int *work_pid, int *fdm)
+{
+	*work_pid = 0;
+	client_stat = STANDBY;
+	FD_CLR(*fdm, &rset);
+	close(*fdm);
+	*fdm = 0;
+	mash_send_cntl("standby!", 8);
 }

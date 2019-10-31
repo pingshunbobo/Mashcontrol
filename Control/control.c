@@ -5,9 +5,7 @@
 #include <signal.h>
 #include "mash.h"
 
-#define	BUF_SIZE	16384		/* max #bytes to request from server */
-
-int	sockfd = 0;
+int	connfd = 0;
 int	sig_quit_flag = 0;
 struct	termios	saved_stermios;
 enum	CONTROL_STATUS	control_stat = MASHCMD;
@@ -25,18 +23,19 @@ int main(int argc, char **argv)
 
 	char	request[BUF_SIZE];
 	char	reply[BUF_SIZE];
+	int	read_idx = 0;
+	int	checked_idx = 0;
 
 	//if (argc != 3)
 	//	err_quit("usage: client <hostname or IPaddr> <port>");
-	//sockfd = Tcp_connect(argv[1], argv[2]);
-	sockfd = Tcp_connect("127.0.0.1", "19293");
+	//connfd = Tcp_connect(argv[1], argv[2]);
+	connfd = Tcp_connect("127.0.0.1", "19293");
 
 	save_termios(STDIN_FILENO);
 	/*
 	 login first.
 	*/
-	memcpy(request, "Mashcmd:help", 12);
-	Write(sockfd, request, 12);
+	mash_send_cmd("help", 4);
 	if (signal(SIGHUP, SIG_IGN) != SIG_IGN)
 		signal(SIGHUP, signal_handler);
 	if (signal(SIGINT, SIG_IGN) != SIG_IGN)
@@ -48,51 +47,40 @@ int main(int argc, char **argv)
 
 	FD_ZERO(&rset);
 	while(1){
-		FD_SET(sockfd, &rset);
+		FD_SET(connfd, &rset);
 		FD_SET(STDIN_FILENO, &rset);
-		if (select (sockfd + 1, &rset, NULL, NULL, NULL) < 0 ){
+		if (select (connfd + 1, &rset, NULL, NULL, NULL) < 0 ){
 			printf("select error, agen!\n");
 			break;
 		}
-		if(FD_ISSET(sockfd, &rset)){
-			memset(reply, '\0', BUF_SIZE);
-			if ( (nbytes = read(sockfd, reply, BUF_SIZE)) <= 0){
+		if(FD_ISSET(connfd, &rset)){
+			if ((nbytes = read(connfd, reply + read_idx, BUF_SIZE - read_idx)) <= 0){
 				if( errno == EAGAIN)
 					continue;
 				else
-					//printf("server returned %d bytes error %s\n", nbytes, strerror(errno));
 					printf("\nServer Closed\n");
 				break;
 			}
-			if( MASH_CTL == mash_type(reply, nbytes)  ){
-				mash_ctl(reply, nbytes);
-			}else if( MASH_CMD == mash_type(reply, nbytes)  ){
-				mash_note(reply, nbytes);
-			}else if( MASH_NOTE == mash_type(reply, nbytes)  ){
-				mash_note(reply, nbytes);
-			}else if( MASH_DATA == mash_type(reply, nbytes)  ){
-				mash_data(reply, nbytes);
-			}
+			int file_fd = open("./log/read.log", O_RDWR|O_APPEND|O_CREAT, S_IRUSR|S_IWUSR);
+			write(file_fd, reply, nbytes);
+			close(file_fd);
+			read_idx += nbytes;
+			mash_proc(reply, &checked_idx, &read_idx);
 		}
 		if(FD_ISSET(STDIN_FILENO, &rset)){
-			/* Add Magic code to message! */
+			if ((nbytes = read(STDIN_FILENO, request, BUF_SIZE)) <= 0)
+				break;
 			if( MASHCMD == control_stat ){
-				memcpy(request, "Mashcmd:", 8);
-				if ( (nbytes = read(STDIN_FILENO, request + 8, BUF_SIZE)) <= 0)
-					break;
-				Write(sockfd, request, nbytes + 8);
+				mash_send_cmd(request, nbytes);
 			}else if( INTERFACE == control_stat ){
-				memcpy(request, "Mashdata:", 9);
-				if ( (nbytes = read(STDIN_FILENO, request + 9, BUF_SIZE)) <= 0)
-					break;
-				Write(sockfd, request, nbytes + 9);
+				mash_send_data(request, nbytes);
 
 			}
 			memset(request, '\0', BUF_SIZE);
 			nbytes = 0;
 		}
 	}
-	Close(sockfd);
+	Close(connfd);
 	restore_termios(STDIN_FILENO);
 	exit(0);
 }

@@ -1,12 +1,25 @@
+#ifndef MASH_H
+#define MASH_H
 #include	<sys/epoll.h>
 
-enum MASH_DATA_TYPE {MASH_CTL, MASH_INFO, MASH_CMD, MASH_DATA, MASH_NOTE, MASH_UNKNOW};
-enum CONTROL_STATUS {MASHCMD, INTERFACE};
+#include "message.h"
 
-enum MASH_DATA_TYPE mash_type(char *reply, int nbytes);
+#define	BUF_SIZE	4100		/* max #bytes to request from server */
+
+enum CONTROL_STATUS {MASHCMD, INTERFACE};
 
 void save_termios(int fd);
 void restore_termios(int fd);
 
-int mash_ctl(char *reply, int nbytes);
-int mash_data(char *reply, int nbytes);
+int mash_proc_cmd(MASH_MESSAGE *message);
+int mash_proc_cntl(MASH_MESSAGE *message);
+int mash_proc_data(MASH_MESSAGE *message);
+int mash_proc_heart(MASH_MESSAGE *message);
+int mash_proc(char *reply, int *checked_idx, int *nbytes);
+
+int mash_send_cmd(char *reply, int len);
+int mash_send_cntl(char *reply, int len);
+int mash_send_data(char *reply, int len);
+int mash_send_heart(char *reply, int len);
+
+#endif

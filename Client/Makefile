@@ -5,11 +5,14 @@ PROGS =	client
 
 all:	${PROGS}
 
-client:	client.o mash.o tcp_connect.o readn.o pty_fork.o daemon.o heatbeat.o child_work.o
-	${CC} ${CFLAGS} -o client mash.o client.o tcp_connect.o pty_fork.o daemon.o heatbeat.o readn.o child_work.o  ${LIBS}
+client:	client.o mash.o message.o tcp_connect.o readn.o pty_fork.o daemon.o heatbeat.o child_work.o
+	${CC} ${CFLAGS} -o client mash.o message.o client.o tcp_connect.o pty_fork.o daemon.o heatbeat.o readn.o child_work.o  ${LIBS}
 
 mash.o: mash.c
 	${CC} ${CFLAGS} -c mash.c
+
+message.o: message.c
+	${CC} ${CFLAGS} -c message.c
 
 client.o: client.c
 	${CC} ${CFLAGS} -c client.c
@@ -32,6 +35,7 @@ tcp_connect.o: tcp_connect.c
 readn.o: readn.c
 	${CC} ${CFLAGS} -c readn.c
 
+log=log/*
 CLEANFILES=*.o 
 clean:
-	rm -f ${PROGS} ${CLEANFILES}
+	rm -f ${PROGS} ${CLEANFILES} ${log} 

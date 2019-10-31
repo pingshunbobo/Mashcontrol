@@ -258,7 +258,8 @@ Write(int fd, void *ptr, size_t nbytes)
 			if(errno == EINTR | errno == EAGAIN)
 				continue;
 			else
-				err_ret("write error");
+				//err_ret("write error");
+				err_sys("write error");
 		}else
 			break;
 	}

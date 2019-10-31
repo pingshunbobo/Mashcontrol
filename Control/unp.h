@@ -40,11 +40,11 @@
 # include	<strings.h>		/* for convenience */
 #endif
 
-/* Three headers are normally needed for socket/file ioctl's:
- * <sys/ioctl.h>, <sys/filio.h>, and <sys/sockio.h>.
+/* Three headers are normally needed for socket/file iocntl's:
+ * <sys/iocntl.h>, <sys/filio.h>, and <sys/sockio.h>.
  */
 #ifdef	HAVE_SYS_IOCTL_H
-# include	<sys/ioctl.h>
+# include	<sys/iocntl.h>
 #endif
 #ifdef	HAVE_SYS_FILIO_H
 # include	<sys/filio.h>
@@ -338,7 +338,7 @@ void	 Close(int);
 void	 Dup2(int, int);
 int		 Fcntl(int, int, int);
 void	 Gettimeofday(struct timeval *, void *);
-int		 Ioctl(int, int, void *);
+int		 Iocntl(int, int, void *);
 pid_t	 Fork(void);
 void	*Malloc(size_t);
 void	 Mktemp(char *);
@@ -355,7 +355,7 @@ void	 Sigpending(sigset_t *);
 void	 Sigprocmask(int, const sigset_t *, sigset_t *);
 char	*Strdup(const char *);
 long	 Sysconf(int);
-void	 Sysctl(int *, u_int, void *, size_t *, void *, size_t);
+void	 Syscntl(int *, u_int, void *, size_t *, void *, size_t);
 void	 Unlink(const char *);
 pid_t	 Wait(int *);
 pid_t	 Waitpid(pid_t, int *, int);

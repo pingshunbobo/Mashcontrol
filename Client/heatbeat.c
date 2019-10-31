@@ -1,4 +1,14 @@
 #include <stdlib.h>
+#include "mash.h"
+
+void heart_loop(int sockfd)
+{
+	while(1){
+		mash_send_heart("ping!", 5);
+		sleep(30);
+	}
+
+}
 
 pid_t heartbeat_fork(int sockfd)
 {
@@ -7,14 +17,7 @@ pid_t heartbeat_fork(int sockfd)
 	if( pid < 0){
 		/* fork error! */
 	}else if(pid == 0){
-		while(1){
-			if( write(sockfd, "Mashheart:ping!", 15) < 0 ){
-				close(sockfd);
-				break;
-			}
-			sleep(30);
-		}
-		exit(1);
+		heart_loop(sockfd);
 	}
 	return pid;
 }

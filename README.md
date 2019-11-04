@@ -19,22 +19,23 @@ The code was so simple. you can compile and run it directly.
 ##Control terminal usage
 * Run the Control at the server host.<br>
 **`~/MashControl/Control/control`** <br>
-`mashcmd%`
+`[mashcmd]`
 
 * Display all the client connected to the server. <br>
-`mashcmd%`**`display`** <br>
-`--5 role: 1 add: 127.0.0.1` <br>
-`--6 role: 9 add: 127.0.0.1` <br>
+`[mashcmd]`**`display`** <br>
+`--id: 6, role: client, addess: 192.168.141.129 @public-ip` <br>
 
 * Select client as interface.<br>
-`mashcmd%`**`select 5`**
+`[mashcmd]`**`select 6`**<br>
+`[mashcmd]`**`display`** <br>
+`++id: 6, role: client, addess: 192.168.141.129 @public-ip` <br>
 
 * Enter the interface of selected client.<br>
-`mashcmd%`**`interface`**<br>
-`interface#`<br>
+`[mashcmd]`**`interface`**<br>
+`[mashcmd][root@server-1 Client]#`<br>
 * **Now you can run command on the terminal same as the client host.**
 
-* Input **`mashcmd`** can back to mashcmd%. 
+* Input **`exit`** on bash you can logout bash and back to mashcmd%. 
 
 ##know issues
 

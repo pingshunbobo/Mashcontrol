@@ -6,9 +6,7 @@
 #include <string.h>
 #include "message.h"
 
-extern int message_seq;
-
-enum MESSAGE_STATUS get_message(MASH_MESSAGE *message, char *buf, int *checked_idx, int read_idx)
+MESSAGE_STATUS get_message(MASH_MESSAGE *message, char *buf, int *checked_idx, int read_idx)
 {
 	if( NULL == message )
 		return CHECK_ERROR;
@@ -89,27 +87,16 @@ DO_CHECK_BODY:
 	return message->status;
 }
 
-MASH_MESSAGE *make_message(enum MESSAGE_TYPE type, char *buf, int len)
+MASH_MESSAGE *make_message(MESSAGE_TYPE type, char *buf, int len)
 {
-	MASH_MESSAGE *message = malloc(sizeof(MASH_MESSAGE));
-	memset(message, '\0', sizeof(MASH_MESSAGE));
+	MASH_MESSAGE *message = malloc(sizeof(MASH_MESSAGE) + len);
+	memset(message, '\0', sizeof(MASH_MESSAGE) + len);
 	message->status = CHECK_OK;
 	message->type = type;
 	message->len = len;
-	message->content = buf;
+	message->content = (void *)message + sizeof(MASH_MESSAGE);
+	memcpy(message->content, buf, len);
+	message->next = NULL;
 	return message;
 }
 
-void log_messages(char *str, MASH_MESSAGE *message)
-{
-	FILE * file = fopen("./log/messages.log", "a+");
-	fprintf(file, "%s ", str);
-	if(50 > (int)message->len)
-		fprintf(file, "seq: %d stat: %d type: %d len: %d content: %s\n", message_seq, message->status, \
-			(int)message->type, (int)message->len,  message->content);
-	else
-		fprintf(file, "seq: %d stat: %d type: %d len: %d content: ...\n", message_seq, message->status, \
-			(int)message->type, (int)message->len);
-	
-	fclose(file);
-}

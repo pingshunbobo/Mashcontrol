@@ -5,17 +5,17 @@ PROGS =	serv
 
 all:	${PROGS}
 
-serv:	serv.o mash.o message.o tcp_listen.o ${LIBS}
-	${CC} ${CFLAGS} -o serv serv.o mash.o message.o tcp_listen.o ${LIBS}
+serv:	serv.o mash.o message.o log.o tcp_listen.o ${LIBS}
+	${CC} ${CFLAGS} -o serv serv.o mash.o message.o log.o tcp_listen.o ${LIBS}
 
 mash.o: mash.c
 	${CC} ${CFLAGS} -c mash.c
 message.o: message.c
 	${CC} ${CFLAGS} -c message.c 
-
+log.o: log.c
+	${CC} ${CFLAGS} -c log.c
 serv.o: serv.c
 	${CC} ${CFLAGS} -c serv.c
-
 tcp_lisen.o: tcp_listen.c
 	${CC} ${CFLAGS} -c tcp_listen.c
 

@@ -21,7 +21,9 @@ typedef struct mashdata
 	char client_pri[16];
         int nreadbuf, nwritebuf;
 	int checked_idx;
-	MASH_MESSAGE in_message, out_message;
+	int in_message_seq, out_message_seq;
+	MASH_MESSAGE in_message;
+	MASH_MESSAGE *out_message;
         char readbuf[BUF_SIZE];
         char writebuf[BUF_SIZE];
 	struct mashdata *prev;
@@ -31,7 +33,7 @@ typedef struct mashdata
 int setnonblocking(int fd);
 int mash_init(MASHDATA *the_data, int sockfd, struct sockaddr_in client_addr);
 int mash_proc(MASHDATA *the_data);
-enum MESSAGE_STATUS mash_get_message(MASHDATA *mashdata);
+MESSAGE_STATUS mash_get_message(MASHDATA *mashdata);
 
 int mash_send_cmd(MASHDATA *mashdata, char *buf, int len);
 int mash_send_cntl(MASHDATA *mashdata, char *buf, int len);

@@ -49,7 +49,7 @@ pid_t pty_fork(int *ptyfdm, char *slave_name, int slave_namesize,
 	char pts_name[20];
 
 	if((fdm = ptym_open(pts_name, sizeof(pts_name))) < 0)
-		printf("Can`t open master pty : %s", pts_name);
+		log_client("pty_fork: Can`t open master pty : %s", pts_name);
 	if(slave_name != NULL){
 		strncpy(slave_name, pts_name, slave_namesize);
 		slave_name[slave_namesize - 1] = '\0';
@@ -59,27 +59,27 @@ pid_t pty_fork(int *ptyfdm, char *slave_name, int slave_namesize,
 		return -1;
 	}else if( pid == 0 ){
 		if(setsid() < 0)
-			printf("setsid error");
+			log_client("pty_fork: setsid error\n");
 
 		if((fds = ptys_open(pts_name)) < 0)
-			printf("can`t open slave pty");
+			log_client("pty_fork: can`t open slave pty\n");
 		/* Close the fdm file descriper in the child process. */
 		close(fdm);
 
 		if(slave_termios != NULL){
 			if(tcsetattr(fds, TCSANOW, slave_termios) < 0)
-				printf("tcsetattr error on slave pty");
+				log_client("tcsetattr error on slave pty\n");
 		}
 		if(slave_winsize != NULL){
 			if(ioctl(fds, TIOCSWINSZ, slave_winsize) < 0)
-				printf("TIOCSWINSZ error on slave pty");
+				log_client("TIOCSWINSZ error on slave pty\n");
 		}
 		if(dup2(fds, STDIN_FILENO) != STDIN_FILENO)
-			printf("dup2 error to stdin! ");
+			log_client("pty_fork: dup2 error to stdin!\n");
 		if(dup2(fds, STDOUT_FILENO) != STDIN_FILENO)
-			printf("dup2 error to stdout! ");
+			log_client("pty_fork: dup2 error to stdout!\n");
 		if(dup2(fds, STDERR_FILENO) != STDIN_FILENO)
-			printf("dup2 error to stderr! ");
+			log_client("pty_fork: dup2 error to stderr!\n");
 		if(fds != STDIN_FILENO && fds != STDIN_FILENO && fds != STDIN_FILENO)
 			return 0;
 	}else{

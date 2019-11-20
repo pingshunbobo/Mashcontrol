@@ -14,6 +14,8 @@ writen(int fd, const void *vptr, size_t n)
 		if ( (nwritten = write(fd, ptr, nleft)) <= 0) {
 			if (errno == EINTR)
 				nwritten = 0;		/* and call write() again */
+			else if (errno == EAGAIN)
+				return (n - nleft);
 			else
 				return(-1);			/* error */
 		}

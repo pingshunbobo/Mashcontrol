@@ -70,6 +70,11 @@ int main(int argc, char **argv)
 		if(FD_ISSET(STDIN_FILENO, &rset)){
 			if ((nbytes = read(STDIN_FILENO, request, BUF_SIZE)) <= 0)
 				break;
+			if(!strncmp(request, "\33OP", 3)){
+				/* Hot key F1." */
+				mash_send_cmd("mashcmd", 7);
+				continue;
+			}
 			if( MASHCMD == control_stat ){
 				mash_send_cmd(request, nbytes);
 			}else if( INTERFACE == control_stat ){

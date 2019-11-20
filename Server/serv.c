@@ -51,6 +51,8 @@ int main(int argc, char **argv)
 				while( (read_ret = mash_read(coredata + sockfd) ) > 0){
 					mash_proc(coredata + sockfd);
 				}
+				//if( read_ret == 0 )
+				//	log_printf("read_ret 0\n");
 				if( read_ret < 0 )
 					mash_close(coredata + sockfd);
 			}

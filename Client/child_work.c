@@ -16,12 +16,12 @@ int create_work(int *pid, int *fdm)
 	char    slave_name[20];
         *pid = pty_fork(fdm, slave_name, 20, NULL, NULL);
         if (*pid < 0)
-                printf("fork error");
+                log_client("fork error");
 
         else if (*pid == 0) {            /* child with pty slave! */
                 if( execl("/usr/bin/bash", "cd ~", NULL)  == -1)
-                        printf("%s execve error!", strerror(errno));
-		printf("child process bash exited!\n");
+                        log_client("execve error when create bash work!");
+		log_client("child process bash exited!\n");
 		exit(0);
         }
         int cflags = fcntl(*fdm, F_GETFL, 0);
@@ -29,7 +29,7 @@ int create_work(int *pid, int *fdm)
 	return *pid;
 }
 
-void out_work(char *reply, int *reply_size, int *work_pid, int *fdm)
+void out_work(int *work_pid, int *fdm)
 {
 	*work_pid = 0;
 	client_stat = STANDBY;

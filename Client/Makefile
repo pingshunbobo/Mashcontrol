@@ -5,8 +5,11 @@ PROGS =	client
 
 all:	${PROGS}
 
-client:	client.o mash.o message.o tcp_connect.o readn.o pty_fork.o daemon.o heatbeat.o child_work.o
-	${CC} ${CFLAGS} -o client mash.o message.o client.o tcp_connect.o pty_fork.o daemon.o heatbeat.o readn.o child_work.o  ${LIBS}
+client:	client.o mash.o message.o tcp_connect.o readn.o pty_fork.o log.o daemon.o heatbeat.o child_work.o
+	${CC} ${CFLAGS} -o client mash.o message.o client.o tcp_connect.o pty_fork.o log.o daemon.o heatbeat.o readn.o child_work.o  ${LIBS}
+
+client.o: client.c
+	${CC} ${CFLAGS} -c client.c
 
 mash.o: mash.c
 	${CC} ${CFLAGS} -c mash.c
@@ -14,11 +17,11 @@ mash.o: mash.c
 message.o: message.c
 	${CC} ${CFLAGS} -c message.c
 
-client.o: client.c
-	${CC} ${CFLAGS} -c client.c
-
 child_work.o: child_work.c
 	${CC} ${CFLAGS} -c child_work.c
+
+log.o: log.c
+	${CC} ${CFLAGS} -c log.c
 
 daemon.o: daemon.c
 	${CC} ${CFLAGS} -c daemon.c

@@ -8,7 +8,10 @@
 int	connfd = 0;
 int	sig_quit_flag = 0;
 struct	termios	saved_stermios;
-enum	CONTROL_STATUS	control_stat = MASHCMD;
+CONTROL_STATUS	control_stat = MASHCMD;
+
+int in_message_seq = 0;
+int out_message_seq = 0;
 
 void signal_handler()
 {
@@ -32,10 +35,6 @@ int main(int argc, char **argv)
 	connfd = Tcp_connect("127.0.0.1", "19293");
 
 	save_termios(STDIN_FILENO);
-	/*
-	 login first.
-	*/
-	mash_send_cmd("help", 4);
 	if (signal(SIGHUP, SIG_IGN) != SIG_IGN)
 		signal(SIGHUP, signal_handler);
 	if (signal(SIGINT, SIG_IGN) != SIG_IGN)
@@ -45,12 +44,17 @@ int main(int argc, char **argv)
 	if (signal(SIGTERM, SIG_IGN) != SIG_IGN)
 		signal(SIGTERM, signal_handler);
 
+	/*
+	 login first.
+	*/
+	mash_send_cmd("help", 4);
+
 	FD_ZERO(&rset);
 	while(1){
 		FD_SET(connfd, &rset);
 		FD_SET(STDIN_FILENO, &rset);
 		if (select (connfd + 1, &rset, NULL, NULL, NULL) < 0 ){
-			printf("select error, agen!\n");
+			log_control("select error, agen!\n");
 			break;
 		}
 		if(FD_ISSET(connfd, &rset)){
@@ -58,12 +62,10 @@ int main(int argc, char **argv)
 				if( errno == EAGAIN)
 					continue;
 				else
-					printf("\nServer Closed\n");
+					log_control("\nServer Closed\n");
 				break;
 			}
-			int file_fd = open("./log/read.log", O_RDWR|O_APPEND|O_CREAT, S_IRUSR|S_IWUSR);
-			write(file_fd, reply, nbytes);
-			close(file_fd);
+			log_read(reply, nbytes);
 			read_idx += nbytes;
 			mash_proc(reply, &checked_idx, &read_idx);
 		}

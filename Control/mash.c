@@ -7,36 +7,38 @@
 #include 	"mash.h"
 #include	"message.h"
 
-extern enum CONTROL_STATUS control_stat;
+extern CONTROL_STATUS control_stat;
 extern struct termios saved_stermios;
 extern int connfd;
 extern fd_set  rset;
+extern int in_message_seq;
+extern int out_message_seq;
 
 void set_nobrk(int fd)
 {
         struct termios  stermios;
         if (tcgetattr(fd, &stermios) < 0)
-                printf("tcgetattr error");
+                log_control("tcgetattr error");
         stermios.c_iflag |= (IGNPAR | ICRNL);
         stermios.c_iflag &= ~( IGNCR | IXON );
         stermios.c_lflag &= ~( ISIG | ICANON | IEXTEN | ECHO | ECHOE | ECHOK );
 
         if (tcsetattr(fd, TCSANOW, &stermios) < 0)
-                printf("tcsetattr error");
+                log_control("tcsetattr error");
 }
 
 void save_termios(int fd)
 {
         struct termios  stermios;
         if (tcgetattr(fd, &stermios) < 0)
-                printf("tcgetattr error");
+		log_control("tcgetattr error");
         memcpy(&saved_stermios, &stermios, sizeof(struct termios));
 }
 
 void restore_termios(int fd)
 {
         if (tcsetattr(fd, TCSANOW, &saved_stermios) < 0)
-                printf("tcsetattr error %s\n", strerror(errno));
+		log_control("tcsetattr error %s\n", strerror(errno));
 }
 
 int mash_proc_cmd(MASH_MESSAGE *message)
@@ -44,7 +46,7 @@ int mash_proc_cmd(MASH_MESSAGE *message)
 	char *reply = message->content;
 	int nbytes = message->len;
 	if (writen(STDOUT_FILENO, reply, nbytes) != nbytes)
-		printf("writen stdout error.\n");
+		log_control("writen stdout error.\n");
 	return 0;
 }
 
@@ -70,7 +72,7 @@ int mash_proc_data(MASH_MESSAGE *message)
 	char *data = message->content;
 	int nbytes = message->len;
 	if (writen(STDOUT_FILENO, data, nbytes) != nbytes)
-		printf("writen stdout error.\n");
+		log_control("writen stdout error.\n");
 	return 0;
 }
 
@@ -86,7 +88,8 @@ int mash_proc(char *reply, int *checked_idx, int *read_idx)
 {
 	static MASH_MESSAGE message;
 	while(CHECK_OK == get_message(&message, reply, checked_idx, read_idx)){
-		log_message("inmessage", &message);
+		in_message_seq ++;
+		log_message(connfd, in_message_seq, "inmessage", &message);
 		if(MASH_CMD == message.type ){
 			mash_proc_cmd(&message);
 		}else if(MASH_CNTL == message.type ){
@@ -119,48 +122,44 @@ int mash_proc(char *reply, int *checked_idx, int *read_idx)
 	return 0;
 }
 
-int mash_send_message(MASH_MESSAGE *message)
+int mash_send_message(MESSAGE_TYPE type, char *content, int len)
 {
-        char *buf = malloc(message->len + 4);
-        memcpy(buf, "M", 1);
-        memcpy(buf+1, &message->type, 1);
-        memcpy(buf+2, &message->len, 2);
-        memcpy(buf+4, message->content, message->len);
-        return writen(connfd, buf, message->len +4);
+	out_message_seq++;
+	MASH_MESSAGE *message = make_message(type, content, len); 
+	log_message(connfd, out_message_seq, "outmessage", message);
+
+	int buf_size = message->len + 4;
+	char *buf = malloc(buf_size);
+
+	memcpy(buf, "M", 1);
+	memcpy(buf+1, &message->type, 1);
+	memcpy(buf+2, &message->len, 2);
+	memcpy(buf+4, message->content, message->len);
+
+	//log_write(buf, len);
+	if (writen(connfd, buf, buf_size) < 0)
+		return -1;
+	free(buf);
+	free_message(message);
+	return 0;
 }
 
-int mash_send_cmd(char *request, int len)
+int mash_send_cmd(char *buf, int len)
 {
-        int nbytes = 0;
-        MASH_MESSAGE *message = make_message(MASH_CMD, request, len);
-        nbytes = mash_send_message(message);
-        free(message);
-        return nbytes;
+	return mash_send_message(MASH_CMD, buf, 15);
 }
 
-int mash_send_cntl(char *reply, int len)
+int mash_send_cntl(char *buf, int len)
 {
-        int nbytes = 0;
-        MASH_MESSAGE *message = make_message(MASH_CNTL, reply, len);
-        nbytes = mash_send_message(message);
-        free(message);
-        return nbytes;
+        return mash_send_message(MASH_CNTL, buf, len);
 }
 
-int mash_send_data(char *reply, int len)
+int mash_send_data(char *buf, int len)
 {
-        int nbytes = 0;
-        MASH_MESSAGE *message = make_message(MASH_DATA, reply, len);
-        nbytes = mash_send_message(message);
-        free(message);
-        return nbytes;
+        return mash_send_message(MASH_DATA, buf, len);
 }
 
-int mash_send_heart(char *reply, int len)
+int mash_send_heart(char *buf, int len)
 {
-        int nbytes = 0;
-        MASH_MESSAGE *message = make_message(MASH_HEART, reply, len);
-        nbytes = mash_send_message(message);
-        free(message);
-        return nbytes;
+        return mash_send_message(MASH_HEART, buf, len);
 }

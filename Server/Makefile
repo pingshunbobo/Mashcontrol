@@ -7,7 +7,6 @@ all:	${PROGS}
 
 serv:	serv.o mash.o message.o log.o tcp_listen.o ${LIBS}
 	${CC} ${CFLAGS} -o serv serv.o mash.o message.o log.o tcp_listen.o ${LIBS}
-
 mash.o: mash.c
 	${CC} ${CFLAGS} -c mash.c
 message.o: message.c
@@ -19,9 +18,9 @@ serv.o: serv.c
 tcp_lisen.o: tcp_listen.c
 	${CC} ${CFLAGS} -c tcp_listen.c
 
-log=log/*
+logs:=logs/read.log logs/write.log logs/message.log
 
 CLEANFILES=*.o serv
 
 clean:
-	rm -f ${PROGS} ${CLEANFILES} ${log}
+	@rm -f ${PROGS} ${CLEANFILES}; rm -rf $(logs)

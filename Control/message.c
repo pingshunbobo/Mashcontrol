@@ -7,7 +7,7 @@
 #include "mash.h"
 #include "message.h"
 
-enum MESSAGE_STATUS get_message(MASH_MESSAGE *message, char *buf, int *checked_idx, int *read_idx)
+MESSAGE_STATUS get_message(MASH_MESSAGE *message, char *buf, int *checked_idx, int *read_idx)
 {
         switch(message->status){
                 case(CHECK_OPEN):
@@ -87,26 +87,20 @@ DO_CHECK_BODY:
         return message->status;
 }
 
-MASH_MESSAGE *make_message(enum MESSAGE_TYPE type, char *buf, int len)
+MASH_MESSAGE *make_message(MESSAGE_TYPE type, char *buf, int len)
 {
         MASH_MESSAGE *message = malloc(sizeof(MASH_MESSAGE));
         memset(message, '\0', sizeof(MASH_MESSAGE));
         message->status = CHECK_OK;
         message->type = type;
         message->len = len;
-        message->content = buf;
+	message->content = malloc(len);
+	memcpy(message->content, buf, len);
         return message;
 }
 
-void log_message(char *str, MASH_MESSAGE *message)
+void free_message(MASH_MESSAGE *message)
 {
-	FILE * file = fopen("./log/messages.log", "a+");
-        fprintf(file, "%s ", str);
-	if(10 > (int)message->len)
-		fprintf(file, "stat: %d type: %d len: %d content: %s\n", message->status, \
-			(int)message->type, (int)message->len,  message->content);    
-	else
-		fprintf(file, "stat: %d type: %d len: %d content: ...\n", message->status, \
-			(int)message->type, (int)message->len);
-	fclose(file);
+	free(message->content);
+	free(message);
 }

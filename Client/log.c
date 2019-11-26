@@ -16,7 +16,7 @@ void log_client(char *str)
 	int file_fd = 0;
 	char buf[BUF_SIZE];
 	if(LOG_LEVEL >= LOG_LEVEL_ERROR){
-		file_fd = open("./log/serv.log", \
+		file_fd = open("./logs/client.log", \
 			O_RDWR|O_APPEND|O_CREAT, S_IRUSR|S_IWUSR );
 		if(file_fd >= 0){
 			nbytes = sprintf(buf, str);
@@ -30,7 +30,7 @@ void log_read(char *buf, int nbytes)
 {
 	int file_fd = 0;
 	if(LOG_LEVEL >= LOG_LEVEL_DEBUG){
-		file_fd = open("./log/read.log", \
+		file_fd = open("./logs/read.log", \
 			O_RDWR|O_APPEND|O_CREAT, S_IRUSR|S_IWUSR );
 		if(file_fd >= 0){
 			write(file_fd, buf, nbytes);
@@ -47,7 +47,7 @@ void log_message(int connfd, int seq, char *str, MASH_MESSAGE *message)
 	if(LOG_LEVEL >= LOG_LEVEL_INFO){
 		nbytes = sprintf(buf, "connfd: %d %s seq: %d stat: %d type: %d len: %d content:\n", connfd, str, seq, message->status, \
                         (int)message->type, (int)message->len );
-        	file_fd = open("./log/messages.log", O_RDWR|O_APPEND|O_CREAT, S_IRUSR|S_IWUSR );
+        	file_fd = open("./logs/messages.log", O_RDWR|O_APPEND|O_CREAT, S_IRUSR|S_IWUSR );
 		if(file_fd >= 0){
 			write(file_fd, buf, nbytes);
 			if(LOG_LEVEL >= LOG_LEVEL_DEBUG){

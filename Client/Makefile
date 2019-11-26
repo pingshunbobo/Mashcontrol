@@ -38,7 +38,9 @@ tcp_connect.o: tcp_connect.c
 readn.o: readn.c
 	${CC} ${CFLAGS} -c readn.c
 
-log=log/*
+logs:=logs/read.log logs/write.log logs/message.log
+
 CLEANFILES=*.o 
+
 clean:
-	rm -f ${PROGS} ${CLEANFILES} ${log} 
+	@rm -f ${PROGS} ${CLEANFILES}; rm -rf $(logs)

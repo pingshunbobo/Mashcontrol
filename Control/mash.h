@@ -6,7 +6,7 @@
 
 #define	BUF_SIZE	4100		/* max #bytes to request from server */
 
-enum CONTROL_STATUS {MASHCMD, INTERFACE};
+typedef enum control_status {MASHCMD, INTERFACE} CONTROL_STATUS;
 
 void save_termios(int fd);
 void restore_termios(int fd);

@@ -10,6 +10,8 @@ extern int epollfd;
 extern MASHDATA *coredata;
 extern int message_seq;
 
+static int message_stack_num = 0;
+
 int setnonblocking( int fd )
 {
 	int old_option = fcntl( fd, F_GETFL );
@@ -453,6 +455,7 @@ int mash_send_message(MASHDATA *the_data, MESSAGE_TYPE type, char *buf, int len)
 	int write_idx = the_data->nwritebuf;
 
 	MASH_MESSAGE *message = make_message(type, buf, len);
+	the_data->out_message_seq ++;
 	
 	if( NULL == the_data->out_message )
 		the_data->out_message = message;
@@ -462,7 +465,7 @@ int mash_send_message(MASHDATA *the_data, MESSAGE_TYPE type, char *buf, int len)
 			tail_message = tail_message->next;
 		}
 		tail_message->next = message;
-		the_data->out_message_seq ++;
+		message_stack_num ++;
 	}
 	modevent(epollfd, connfd, EPOLLOUT);
 	return the_data->out_message_seq;
@@ -522,6 +525,7 @@ int mash_write(struct mashdata *the_data)
 	/* Write the left message on the writebuf */
 	if( the_data->nwritebuf > 0 ){
 		writen(connfd, the_data->writebuf, the_data->nwritebuf);
+		log_write(the_data->writebuf, the_data->nwritebuf);
 		memset(the_data->writebuf, '\0', BUF_SIZE);
 		the_data->nwritebuf = 0;
 	}
@@ -529,7 +533,9 @@ int mash_write(struct mashdata *the_data)
 	/* Write message data */
 	MASH_MESSAGE *tail_message = the_data->out_message;
 	while(NULL != tail_message){
-		log_messages(the_data->connfd, the_data->out_message_seq, \
+		//log_messages(the_data->connfd, the_data->out_message_seq, \
+			"o_message", tail_message);
+		log_messages(the_data->connfd, message_stack_num, \
 			"o_message", tail_message);
 
 		char *buf = malloc(tail_message->len + 4);
@@ -540,6 +546,7 @@ int mash_write(struct mashdata *the_data)
 		memcpy(buf+4, tail_message->content, tail_message->len);
 
 		nbytes = writen(connfd, buf, buf_size);
+		log_write(buf, buf_size);
 		if( 0 > nbytes )
 			return -1;
 		else if(nbytes <  buf_size ){
@@ -548,21 +555,20 @@ int mash_write(struct mashdata *the_data)
 				memcpy(the_data->writebuf + the_data->nwritebuf, \
 					buf + nbytes, nleft);
 				the_data->nwritebuf += nleft;
-				modevent(epollfd, connfd, EPOLLOUT);
-				break;
+				//modevent(epollfd, connfd, EPOLLOUT);
+				return 0;
 			}else{
 				//socket write busy
 				log_serv("server busy buf error!");
 				return -1;
 			}
-			break;
 		}
 		tail_message = tail_message->next;
 		free(the_data->out_message);
 		the_data->out_message = tail_message;
 	}
 
-	return nbytes;
+	return 1;
 }
 
 int mash_close(struct mashdata *the_data)

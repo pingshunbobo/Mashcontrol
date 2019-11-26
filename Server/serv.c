@@ -25,6 +25,8 @@ int main(int argc, char **argv)
 	listenfd = Tcp_listen(NULL, "19293", &addrlen);
 	epollfd = Epoll_create( 5 );
 	addevent(epollfd, listenfd, false);
+
+	log_serv("server started\n");
 	/* loop process io events. */
 	for ( ; ; ){
 		if( (number = Epoll_wait( epollfd, events, MAX_EVENT_NUMBER, -1 )) <= -1 )
@@ -48,18 +50,21 @@ int main(int argc, char **argv)
 			}
 			if( events[i].events & EPOLLIN ){
 				int read_ret = 0;
-				while( (read_ret = mash_read(coredata + sockfd) ) > 0){
+				while( (read_ret = mash_read(coredata + sockfd)) > 0){
 					mash_proc(coredata + sockfd);
 				}
-				//if( read_ret == 0 )
-				//	log_printf("read_ret 0\n");
+				if( read_ret == 0 )
+					log_serv("read_ret 0\n");
 				if( read_ret < 0 )
 					mash_close(coredata + sockfd);
 			}
 			if( events[i].events & EPOLLOUT ){
-				if( mash_write(coredata + sockfd) < 0 )
+				int write_ret = 0;
+				if( (write_ret = mash_write(coredata + sockfd)) < 0 )
 					mash_close(coredata + sockfd);
-				else
+				else if(write_ret == 0)
+					modevent(epollfd, sockfd, EPOLLOUT);
+				else 
 					modevent(epollfd, sockfd, EPOLLIN);
 			}
 		}//end epoll event scan.

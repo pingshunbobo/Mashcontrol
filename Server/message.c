@@ -100,3 +100,8 @@ MASH_MESSAGE *make_message(MESSAGE_TYPE type, char *buf, int len)
 	return message;
 }
 
+void free_message(MASH_MESSAGE *message)
+{
+	free(message->content);
+	free(message);
+}

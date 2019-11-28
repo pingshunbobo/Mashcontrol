@@ -519,15 +519,28 @@ reread:
 int mash_write(struct mashdata *the_data)
 {
 	int nbytes = 0;
+	int nleft = 0;
 	int connfd = the_data->connfd;
 	MASH_MESSAGE * need_free_message = NULL;
 
 	/* Write the left message on the writebuf */
 	if( the_data->nwritebuf > 0 ){
-		writen(connfd, the_data->writebuf, the_data->nwritebuf);
-		log_write(the_data->writebuf, the_data->nwritebuf);
-		memset(the_data->writebuf, '\0', BUF_SIZE);
-		the_data->nwritebuf = 0;
+		nbytes = writen(connfd, the_data->writebuf, the_data->nwritebuf);
+		if(nbytes < 0){
+			log_serv("write error.\n");
+			return -1;
+		}else if(nbytes < the_data->nwritebuf){
+			log_write(the_data->writebuf, nbytes);
+			/* copy content to buf head. */
+			nleft = the_data->nwritebuf - nbytes;
+			memcpy(the_data->writebuf, the_data->writebuf + nbytes, nleft);
+			the_data->nwritebuf = nleft;
+			return 0;
+		}else{ 
+			log_write(the_data->writebuf, nbytes);
+			memset(the_data->writebuf, '\0', BUF_SIZE);
+			the_data->nwritebuf = 0;
+		}
 	}
 
 	/* Write message data */
@@ -538,7 +551,7 @@ int mash_write(struct mashdata *the_data)
 		log_messages(the_data->connfd, message_stack_num, \
 			"o_message", tail_message);
 
-		char *buf = malloc(tail_message->len + 4);
+		char *buf = the_data->writebuf;
 		int buf_size = tail_message->len + 4;
 		memcpy(buf, "M", 1);
 		memcpy(buf+1, &tail_message->type, 1);
@@ -546,23 +559,23 @@ int mash_write(struct mashdata *the_data)
 		memcpy(buf+4, tail_message->content, tail_message->len);
 
 		nbytes = writen(connfd, buf, buf_size);
-		log_write(buf, buf_size);
 		if( 0 > nbytes )
 			return -1;
 		else if(nbytes <  buf_size ){
-			int nleft = buf_size - nbytes;
+			log_write(buf, nbytes);
+			nleft = buf_size - nbytes;
 			if( the_data->nwritebuf + nleft < BUF_SIZE ){
 				memcpy(the_data->writebuf + the_data->nwritebuf, \
 					buf + nbytes, nleft);
 				the_data->nwritebuf += nleft;
-				//modevent(epollfd, connfd, EPOLLOUT);
 				return 0;
 			}else{
-				//socket write busy
+				/* Socket write busy it will not hapends */
 				log_serv("server busy buf error!");
 				return -1;
 			}
 		}
+		log_write(buf, nbytes);
 		tail_message = tail_message->next;
 		free(the_data->out_message);
 		the_data->out_message = tail_message;

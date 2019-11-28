@@ -5,7 +5,7 @@
 #include "message.h"
 
 #define BUF_SIZE   4100
-#define MAX_CLIENT_NUM 65535
+#define MAX_CLIENT_NUM 1024
 #define MAX_EVENT_NUMBER 10000
 
 enum MASH_MODE {CMD, CLI, INTERFACE, WORK, STANDBY};

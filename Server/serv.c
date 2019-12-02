@@ -20,12 +20,12 @@ int main(int argc, char **argv)
 
 	struct epoll_event events[MAX_EVENT_NUMBER];
 
-	coredata = malloc(MAX_CLIENT_NUM * sizeof(struct mashdata));
-	memset(coredata, '\0', MAX_CLIENT_NUM * sizeof(struct mashdata));
+	coredata = malloc(MAX_CLIENT_NUM * sizeof(MASHDATA));
+	memset(coredata, '\0', MAX_CLIENT_NUM * sizeof(MASHDATA));
 	listenfd = Tcp_listen(NULL, "19293", &addrlen);
 	epollfd = Epoll_create( 5 );
 	addevent(epollfd, listenfd, false);
-
+	make_threadpool(10);
 	log_serv("server started\n");
 	/* loop process io events. */
 	for ( ; ; ){
@@ -49,14 +49,7 @@ int main(int argc, char **argv)
 				continue;
 			}
 			if( events[i].events & EPOLLIN ){
-				int read_ret = 0;
-				while( (read_ret = mash_read(coredata + sockfd)) > 0){
-					mash_proc(coredata + sockfd);
-				}
-				if( read_ret == 0 )
-					log_serv("read_ret 0\n");
-				if( read_ret < 0 )
-					mash_close(coredata + sockfd);
+				threadpool_append(coredata + sockfd);
 			}
 			if( events[i].events & EPOLLOUT ){
 				int write_ret = 0;

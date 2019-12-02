@@ -21,13 +21,12 @@ typedef struct mashdata
 	char client_pri[16];
         int nreadbuf, nwritebuf;
 	int checked_idx;
+	pthread_mutex_t mash_mutex;
 	int in_message_seq, out_message_seq;
 	MASH_MESSAGE in_message;
 	MASH_MESSAGE *out_message;
         char readbuf[BUF_SIZE];
         char writebuf[BUF_SIZE];
-	struct mashdata *prev;
-	struct mashdata *next;
 }MASHDATA;
 
 int setnonblocking(int fd);

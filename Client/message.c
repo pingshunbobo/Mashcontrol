@@ -98,6 +98,7 @@ MASH_MESSAGE *make_message(MESSAGE_TYPE type, char *buf, int len)
 	message->len = len;
 	message->content = malloc(len);
 	memcpy(message->content, buf, len);
+	message->next = NULL;
 	return message;
 }
 

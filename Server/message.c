@@ -89,12 +89,12 @@ DO_CHECK_BODY:
 
 MASH_MESSAGE *make_message(MESSAGE_TYPE type, char *buf, int len)
 {
-	MASH_MESSAGE *message = malloc(sizeof(MASH_MESSAGE) + len);
-	memset(message, '\0', sizeof(MASH_MESSAGE) + len);
+	MASH_MESSAGE *message = malloc(sizeof(MASH_MESSAGE));
+	memset(message, '\0', sizeof(MASH_MESSAGE));
 	message->status = CHECK_OK;
 	message->type = type;
 	message->len = len;
-	message->content = (void *)message + sizeof(MASH_MESSAGE);
+	message->content = malloc(len);
 	memcpy(message->content, buf, len);
 	message->next = NULL;
 	return message;

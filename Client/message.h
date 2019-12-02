@@ -13,6 +13,7 @@ typedef struct mash_message
 	MESSAGE_TYPE type;
 	short len;
 	char *content;
+	struct mash_message *next;
 }MASH_MESSAGE;
 
 MESSAGE_STATUS get_message(MASH_MESSAGE *message, char *buf, int *checked_idx, int *read_idx);

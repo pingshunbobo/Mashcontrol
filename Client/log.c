@@ -47,7 +47,7 @@ void log_message(int connfd, int seq, char *str, MASH_MESSAGE *message)
 	if(LOG_LEVEL >= LOG_LEVEL_INFO){
 		nbytes = sprintf(buf, "connfd: %d %s seq: %d stat: %d type: %d len: %d content:\n", connfd, str, seq, message->status, \
                         (int)message->type, (int)message->len );
-        	file_fd = open("./logs/messages.log", O_RDWR|O_APPEND|O_CREAT, S_IRUSR|S_IWUSR );
+        	file_fd = open("./logs/message.log", O_RDWR|O_APPEND|O_CREAT, S_IRUSR|S_IWUSR );
 		if(file_fd >= 0){
 			write(file_fd, buf, nbytes);
 			if(LOG_LEVEL >= LOG_LEVEL_DEBUG){

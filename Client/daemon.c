@@ -19,7 +19,6 @@ void daemon_init(int *pid )
 	signal(SIGCHLD, sig_child);
 	signal(SIGINT, SIG_IGN);
 
-	chdir("~");
 	umask(0);
 	close(0);
 	close(1);

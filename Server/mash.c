@@ -24,12 +24,11 @@ void addevent( int epollfd, int fd, bool one_shot )
 {
 	struct epoll_event event;
 	event.data.fd = fd;
-	event.events = EPOLLIN | EPOLLET | EPOLLRDHUP;
+	event.events = EPOLLIN | EPOLLET | EPOLLERR | EPOLLRDHUP;
 	if( one_shot ){
 		event.events |= EPOLLONESHOT;
 	}
 	Epoll_ctl( epollfd, EPOLL_CTL_ADD, fd, &event );
-	setnonblocking( fd );
 	return;
 }
 
@@ -37,7 +36,7 @@ void modevent( int epollfd, int fd, int ev )
 {
 	struct epoll_event event;
 	event.data.fd = fd;
-	event.events = ev | EPOLLET | EPOLLRDHUP;
+	event.events = ev | EPOLLET | EPOLLERR | EPOLLRDHUP;
 	Epoll_ctl( epollfd, EPOLL_CTL_MOD, fd, &event );
 	return;
 }
@@ -47,7 +46,7 @@ void delevent(int epollfd, int fd)
 	Epoll_ctl( epollfd, EPOLL_CTL_DEL, fd, 0 );
 }
 
-void mash_display(struct mashdata *the_data)
+void mash_display(MASHDATA *the_data)
 {
 	int i = 0;
 	int nbytes = 0;
@@ -67,7 +66,7 @@ void mash_display(struct mashdata *the_data)
 	mash_send_cmd(the_data, buf, nbytes);
 }
 
-void mash_show(struct mashdata *the_data)
+void mash_show(MASHDATA *the_data)
 {
 	int i = 0;
 	for(i = 0; i < 10; ++i){
@@ -78,7 +77,7 @@ void mash_show(struct mashdata *the_data)
 	return;
 }
 
-int mash_select(struct mashdata *the_data, int slave_id)
+int mash_select(MASHDATA *the_data, int slave_id)
 {
 	int nbytes = 0;
 	char buf[BUF_SIZE];
@@ -94,7 +93,7 @@ int mash_select(struct mashdata *the_data, int slave_id)
 	return nbytes;
 }
 
-int mash_unselect(struct mashdata *the_data, int slave_id)
+int mash_unselect(MASHDATA *the_data, int slave_id)
 {
 	MASHDATA *slave_data = coredata + slave_id;
 	if(the_data->role == 9 && the_data->selected == slave_data){
@@ -105,18 +104,14 @@ int mash_unselect(struct mashdata *the_data, int slave_id)
 	return 0;
 }
 
-int selected_num(struct mashdata *the_data)
+int selected_num(MASHDATA *the_data)
 {
 	MASHDATA *one_data = the_data->selected;
-	int count = 0;
-	while(one_data){
-		++count;
-		one_data = one_data->next;
-	}
+	int count = 1;
 	return count;
 }
 
-void mash_help(struct mashdata *the_data)
+void mash_help(MASHDATA *the_data)
 {
 	int nbytes = 0;
 	char buf[BUF_SIZE];
@@ -134,7 +129,7 @@ void mash_help(struct mashdata *the_data)
 	mash_send_cmd(the_data, buf, nbytes); 
 }
 
-int mash_auth(struct mashdata *the_data)
+int mash_auth(MASHDATA *the_data)
 {
 	char login_ip[] = "127.0.0.1";
 	if(the_data->role == 1)	/* Already login */
@@ -161,17 +156,16 @@ int mash_init(MASHDATA *the_data, int sockfd, struct sockaddr_in client_addr)
 	if( sockfd < 0 )
 		return -1;
 
-	memset(the_data, '\0', sizeof(struct mashdata));
+	memset(the_data, '\0', sizeof(MASHDATA));
 	setnonblocking(sockfd);
 	the_data->connfd = sockfd;
 	the_data->selected = NULL;
-	the_data->next = NULL;
-	the_data->prev = NULL;
 	the_data->nwritebuf = 0;
 	the_data->nreadbuf = 0;
 	the_data->checked_idx = 0;
 	the_data->in_message_seq = 0;
 	the_data->out_message_seq = 0;
+	init_locker(&the_data->mash_mutex);
 	memset(&the_data->in_message, '\0', sizeof(MASH_MESSAGE));
 	the_data->out_message = NULL;
 
@@ -196,7 +190,7 @@ int mash_init(MASHDATA *the_data, int sockfd, struct sockaddr_in client_addr)
 	return 0;
 }
 
-int mash_proc_data(struct mashdata *the_data)
+int mash_proc_data(MASHDATA *the_data)
 {
 	int id = 0;
 	int selected_count = 0;
@@ -214,7 +208,9 @@ int mash_proc_data(struct mashdata *the_data)
 			admin_data = the_data->selected;
 		/* return readbuf to admin console. */
 		if( 9 == admin_data->role && admin_data->status == INTERFACE ){
+			lock(&admin_data->mash_mutex);
 			mash_send_data(admin_data, data_buf, data_size);
+			unlock(&admin_data->mash_mutex);
 		}
 		return 1;
 	}
@@ -225,14 +221,16 @@ int mash_proc_data(struct mashdata *the_data)
 		if(CLI == the_data->status | \
 				INTERFACE == the_data->status){
 			one_data = the_data->selected;
-			while(one_data){
+			//while(one_data){
 				if( one_data->selected == the_data \
 					& WORK == one_data->status ){
 					selected_count ++;
+					lock(&one_data->mash_mutex);
 					mash_send_data(one_data, data_buf, data_size);
+					unlock(&one_data->mash_mutex);
 				}
-				one_data = one_data -> next;
-			}
+			//	one_data = one_data -> next;
+			//}
 			/* Slave was disconnected, rest control to mashcmd  */
 			if( 0 == selected_count ){
 				the_data->status = CMD;
@@ -246,7 +244,7 @@ int mash_proc_data(struct mashdata *the_data)
 	return 3;
 }
 
-int mash_proc_cntl(struct mashdata *the_data)
+int mash_proc_cntl(MASHDATA *the_data)
 {
 	int id = 0;
 	int nbytes = 0;
@@ -258,17 +256,21 @@ int mash_proc_cntl(struct mashdata *the_data)
 			the_data->status = WORK;
 			admin_data = the_data->selected;
 			if( admin_data ){
+				lock(&admin_data->mash_mutex);
 				admin_data->status = INTERFACE;
 				mash_send_cntl(admin_data, "interface!", 10);
+				unlock(&admin_data->mash_mutex);
 			}
 		}
 		if(!strncmp(cntl, "standby!", 8)){
 			the_data->status = STANDBY;
 			admin_data = the_data->selected;
 			if( admin_data ){
+				lock(&admin_data->mash_mutex);
 				admin_data->status = CMD;
 				mash_send_cntl(admin_data, "mashcmd!", 8);
 				mash_send_cmd(admin_data, "[mashcmd]", 9);
+				unlock(&admin_data->mash_mutex);
 			}
 		}
 		return 1;
@@ -276,12 +278,12 @@ int mash_proc_cntl(struct mashdata *the_data)
 	return 0;
 }
 
-int mash_control_cntl(struct mashdata *the_data)
+int mash_control_cntl(MASHDATA *the_data)
 {	
 	int id = 0;
 	int nbytes = 0;
 	int admin_id = 0;
-	struct mashdata *one_data = NULL;
+	MASHDATA *slave_data = NULL;
 	char *cntl = the_data->in_message.content;
 	int sockfd = the_data->connfd;
 
@@ -290,11 +292,10 @@ int mash_control_cntl(struct mashdata *the_data)
 		return 0;
 	}
 	if( !strncmp(cntl, "interface", 9) ){
-		one_data = the_data -> selected;
-		while(one_data){
-			mash_send_cntl(one_data, "work!", 5);
-			one_data = one_data -> next;
-		}
+		slave_data = the_data -> selected;
+		lock(&slave_data->mash_mutex);
+		mash_send_cntl(slave_data, "work!", 5);
+		unlock(&slave_data->mash_mutex);
 		return 9;
 	}else if( !strncmp(cntl, "mashcmd", 7) ){
 		the_data->status = CMD;
@@ -304,7 +305,7 @@ int mash_control_cntl(struct mashdata *the_data)
 	return 0;
 }
 
-int mash_proc_cmd(struct mashdata *the_data)
+int mash_proc_cmd(MASHDATA *the_data)
 {
 	int id = 0;
 	int admin_id = 0;
@@ -355,7 +356,7 @@ int mash_proc_cmd(struct mashdata *the_data)
 	return 9;
 }
 
-int mash_proc_info(struct mashdata *the_data)
+int mash_proc_info(MASHDATA *the_data)
 {
 	int len = the_data->in_message.len;
 	char *info = the_data->in_message.content;
@@ -363,7 +364,7 @@ int mash_proc_info(struct mashdata *the_data)
 	return len;
 }
 
-int mash_proc_heart(struct mashdata *the_data)
+int mash_proc_heart(MASHDATA *the_data)
 {
 	int nbytes = the_data->nwritebuf;
 	char buf[BUF_SIZE];
@@ -376,17 +377,10 @@ int mash_proc_heart(struct mashdata *the_data)
 	return nbytes;
 }
 
-int mash_proc(struct mashdata *the_data)
+int mash_proc(MASHDATA *the_data)
 {
 	while(CHECK_OK == mash_get_message(the_data)){
 		the_data->in_message_seq++;
-		if(!strncmp(the_data->in_message.content, "y ACPI", 6))
-		{
-			int flag = 5;
-			log_messages(the_data->connfd, the_data->in_message_seq, \
-				"i_message: ", &the_data->in_message);
-		}
-
 		log_messages(the_data->connfd, the_data->in_message_seq, \
 			"i_message: ", &the_data->in_message);
 
@@ -408,7 +402,7 @@ int mash_proc(struct mashdata *the_data)
 				mash_proc_heart(the_data);
 				break;
 			default:
-				log_serv("unknow client");
+				log_serv("unknow client\n");
 				mash_close(the_data);
 		}
 		if(CHECK_OK == the_data->in_message.status)
@@ -417,13 +411,13 @@ int mash_proc(struct mashdata *the_data)
 	MASH_MESSAGE *message = &the_data->in_message;
 	if( the_data->checked_idx > the_data->nreadbuf ){
 		log_serv("checked error!\n");
-		//exit(1);
+		exit(1);
 	}
 	if( the_data->checked_idx == the_data->nreadbuf ){
 		the_data->nreadbuf = 0;
 		the_data->checked_idx = 0;
-        	memset(the_data->readbuf, '\0', BUF_SIZE);
-	}else if( CHECK_HEADER == message->status || CHECK_BODY == message->status){
+        	memset(the_data->readbuf, '\0', the_data->nreadbuf);
+	}else if( CHECK_HEADER == message->status || CHECK_BODY == message->status ){
 		/* copy readbuf to memory head */
 		memcpy(the_data->readbuf, the_data->readbuf + the_data->checked_idx, \
 				the_data->nreadbuf - the_data->checked_idx);
@@ -432,14 +426,28 @@ int mash_proc(struct mashdata *the_data)
         	memset(the_data->readbuf + the_data->nreadbuf, '\0', \
 				BUF_SIZE - the_data->nreadbuf);
 	}else if( CHECK_ERROR == message->status ){
-		log_serv("message error: ");
+		log_serv("message error: \n");
+		exit(1);
 		log_messages(the_data->connfd, the_data->in_message_seq, \
-				"i_message: ", &the_data->in_message);
+				"e_message: ", &the_data->in_message);
 		memset(message, '\0', sizeof(MASH_MESSAGE));
 		the_data->nreadbuf = 0;
 		the_data->checked_idx = 0;
         	memset(the_data->readbuf, '\0', BUF_SIZE);
+		return -1;
 	}
+	return 0;
+}
+
+int mash_thread_proc(MASHDATA *the_data)
+{
+	int read_ret = 0;
+	int connfd = the_data->connfd;
+	while( (read_ret = mash_read(the_data)) > 0){
+		mash_proc(the_data);
+	}
+	if( read_ret < 0 )
+		mash_close(the_data);
 	return 0;
 }
 
@@ -468,7 +476,7 @@ int mash_send_message(MASHDATA *the_data, MESSAGE_TYPE type, char *buf, int len)
 		message_stack_num ++;
 	}
 	modevent(epollfd, connfd, EPOLLOUT);
-	return the_data->out_message_seq;
+	return 0;
 }
 
 int mash_send_cmd(MASHDATA *mashdata, char *buf, int len)
@@ -491,13 +499,17 @@ int mash_send_heart(MASHDATA *mashdata, char *buf, int len)
 	return mash_send_message(mashdata, MASH_HEART, buf, len);
 }
 
-int mash_read(struct mashdata *the_data)
+int mash_read(MASHDATA *the_data)
 {
 	int nread = 0;
 	int sockfd = the_data -> connfd;
 	int read_idx = the_data -> nreadbuf;
 	MASH_MESSAGE *message = &the_data -> in_message;
 
+	if( BUF_SIZE == read_idx ){
+		log_serv("buf over read 0 bytes!\n");
+		return 0;
+	}
 reread:
 	if ( (nread = read(sockfd, the_data->readbuf + read_idx, BUF_SIZE - read_idx)) < 0 ){
 		if(errno == EINTR)
@@ -507,7 +519,7 @@ reread:
 		else
 			return -1;
 	}else if(nread == 0){
-		log_serv("Connection closed by other end");
+		log_serv("Connection closed by other end\n");
 		return -1;
 	}
 	log_read(the_data->readbuf + read_idx, nread);
@@ -516,12 +528,16 @@ reread:
 	return nread;
 }
 
-int mash_write(struct mashdata *the_data)
+int mash_write(MASHDATA *the_data)
 {
 	int nbytes = 0;
 	int nleft = 0;
 	int connfd = the_data->connfd;
-	MASH_MESSAGE * need_free_message = NULL;
+	MASH_MESSAGE *need_free_message = NULL;
+
+	/* nothting to write */
+	if( !the_data->nwritebuf && !the_data->out_message )
+		return 1;
 
 	/* Write the left message on the writebuf */
 	if( the_data->nwritebuf > 0 ){
@@ -584,7 +600,7 @@ int mash_write(struct mashdata *the_data)
 	return 1;
 }
 
-int mash_close(struct mashdata *the_data)
+int mash_close(MASHDATA *the_data)
 {
 	int sockfd = the_data -> connfd;
 	MASHDATA * one_data = NULL;
@@ -603,17 +619,17 @@ int mash_close(struct mashdata *the_data)
 		}
 	}else if( the_data->role == 9 ){
 		one_data = the_data -> selected;
-		while( one_data ){
+		//while( one_data ){
 			if(one_data->role == 1 && one_data->selected == the_data){
 				one_data->selected = NULL;
 				one_data->status = STANDBY;
                 	}
-			one_data = one_data -> next;
-		}
+		//	one_data = one_data -> next;
+		//}
 	}
 	the_data->role = 0;
 	the_data->connfd = -1;
-	the_data->selected = 0;
+	the_data->selected = NULL;
 	delevent(epollfd, sockfd);
 	close(sockfd);
 	return 0;

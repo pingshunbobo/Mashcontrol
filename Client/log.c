@@ -2,6 +2,7 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <stdlib.h>
+#include <stdio.h>
 #include "mash.h"
 
 #define LOG_LEVEL_ERROR 1

@@ -1,7 +1,7 @@
 #ifndef MASH_H
 #define MASH_H
 
-#include "unp.h"
+#include <netinet/in.h>
 #include "message.h"
 
 #define BUF_SIZE   4100

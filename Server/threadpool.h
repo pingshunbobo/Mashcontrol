@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <pthread.h>
 #include <stdbool.h>
+#include <sys/syscall.h>
 #include "locker.h"
 #include "mash.h"
 
@@ -26,10 +27,12 @@ typedef struct mash_queue
 }MASH_QUEUE;
 
 MASH_QUEUE mash_queue_data;
+MASHDATA **thread_work_data;
 
 static int all_thread_number = 0;
 static pthread_t *all_thread_t = NULL;
 static pthread_mutex_t	mash_queue_mutex = PTHREAD_MUTEX_INITIALIZER;
+static pthread_mutex_t	thread_work_mutex = PTHREAD_MUTEX_INITIALIZER;
 static sem_t		have_mash_sem;
 
 int make_threadpool(int thread_number);

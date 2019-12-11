@@ -459,23 +459,31 @@ MESSAGE_STATUS mash_get_message(MASHDATA *mashdata)
 
 int mash_send_message(MASHDATA *the_data, MESSAGE_TYPE type, char *buf, int len)
 {
+	MASH_MESSAGE *index_message = NULL;
+	MASH_MESSAGE *tmp_message = NULL;
 	int connfd = the_data->connfd;
 	int write_idx = the_data->nwritebuf;
 
 	MASH_MESSAGE *message = make_message(type, buf, len);
 	the_data->out_message_seq ++;
 	
-	if( NULL == the_data->out_message )
+	index_message = the_data->out_message;
+	if( !index_message )
 		the_data->out_message = message;
 	else{
-		MASH_MESSAGE *tail_message = the_data->out_message;
-		while(NULL != tail_message->next){
-			tail_message = tail_message->next;
+		while(index_message->next){
+			if(message->type < index_message->next->type){
+				tmp_message = index_message->next;
+				index_message->next = message;
+				message->next = tmp_message;
+			}
+			index_message = index_message->next;
 		}
-		tail_message->next = message;
-		message_stack_num ++;
+		if( !index_message->next )
+			index_message->next = message;
 	}
-	modevent(epollfd, connfd, EPOLLOUT);
+	message_stack_num ++;
+	modevent(epollfd, connfd, EPOLLIN|EPOLLOUT);
 	return 0;
 }
 
@@ -528,6 +536,12 @@ reread:
 	return nread;
 }
 
+/*
+ * mash_write write data from writebuf and out messages.
+ * return 1: write all data over;
+ * return 0: write part of data;
+ * return -1: write error, maybe socket closed;
+ * */
 int mash_write(MASHDATA *the_data)
 {
 	int nbytes = 0;
@@ -579,6 +593,7 @@ int mash_write(MASHDATA *the_data)
 			return -1;
 		else if(nbytes <  buf_size ){
 			log_write(buf, nbytes);
+			/*copy left messagedata to the writebuf */
 			nleft = buf_size - nbytes;
 			if( the_data->nwritebuf + nleft < BUF_SIZE ){
 				memcpy(the_data->writebuf + the_data->nwritebuf, \
@@ -588,7 +603,7 @@ int mash_write(MASHDATA *the_data)
 			}else{
 				/* Socket write busy it will not hapends */
 				log_serv("server busy buf error!");
-				return -1;
+				exit(1);
 			}
 		}
 		log_write(buf, nbytes);
@@ -619,13 +634,12 @@ int mash_close(MASHDATA *the_data)
 		}
 	}else if( the_data->role == 9 ){
 		one_data = the_data -> selected;
-		//while( one_data ){
+		if( one_data ){
 			if(one_data->role == 1 && one_data->selected == the_data){
 				one_data->selected = NULL;
 				one_data->status = STANDBY;
                 	}
-		//	one_data = one_data -> next;
-		//}
+		}
 	}
 	the_data->role = 0;
 	the_data->connfd = -1;

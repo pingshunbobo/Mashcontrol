@@ -4,7 +4,6 @@
 #include <fcntl.h>              /* Obtain O_* constant definitions */
 #include <sys/ioctl.h>
 #include <unistd.h>
-#include <stdio.h>
 #include <string.h>
 
 int ptym_open(char *pts_name, int pts_namesz)

@@ -16,6 +16,7 @@ int main(int argc, char **argv)
 	int nread = 0;
 	int number = 0;
 	int listenfd = 0;
+	int write_ret = 0;
 	socklen_t addrlen;
 
 	struct epoll_event events[MAX_EVENT_NUMBER];
@@ -34,12 +35,12 @@ int main(int argc, char **argv)
 		for ( i = 0; i < number; i++ ){
 			sockfd = events[i].data.fd;
 			if( sockfd == listenfd ){
-				/*Here is a connect request*/
+				/* If it is a connect event */
 				struct sockaddr_in client_address;
 				socklen_t client_addrlength = sizeof( client_address );
 				connfd = Accept( listenfd, ( struct sockaddr* )&client_address, &client_addrlength );
 
-				/* If Connect success initial the mash data struct*/
+				/* If Connect success initial the mash data struct */
 				if( mash_init(coredata + connfd, connfd, client_address) > 0 )
 					addevent(epollfd, connfd, false);
 				continue;
@@ -52,11 +53,10 @@ int main(int argc, char **argv)
 				threadpool_append(coredata + sockfd);
 			}
 			if( events[i].events & EPOLLOUT ){
-				int write_ret = 0;
 				if( (write_ret = mash_write(coredata + sockfd)) < 0 )
 					mash_close(coredata + sockfd);
 				else if(write_ret == 0)
-					modevent(epollfd, sockfd, EPOLLOUT);
+					modevent(epollfd, sockfd, EPOLLIN|EPOLLOUT);
 				else 
 					modevent(epollfd, sockfd, EPOLLIN);
 			}

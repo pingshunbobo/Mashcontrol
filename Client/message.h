@@ -1,10 +1,7 @@
 #ifndef MESSAGE_H
 #define MESSAGE_H
 
-#include <stdio.h>
-#include <stdlib.h>
-
-typedef enum message_type {MASH_CMD=1, MASH_CNTL=2, MASH_INFO=3, MASH_DATA=4, MASH_FILE=5, MASH_HEART=6, MASH_UNKNOW=7} MESSAGE_TYPE;
+typedef enum message_type {MASH_CNTL=1, MASH_HEART=2, MASH_CMD=3, MASH_DATA=4, MASH_FILE=5, MASH_INFO=6, MASH_UNKNOW=7} MESSAGE_TYPE;
 typedef enum message_status {CHECK_OPEN=0, CHECK_OK=1, CHECK_HEADER=2, CHECK_BODY=3, CHECK_ERROR=4} MESSAGE_STATUS;
 
 typedef struct mash_message

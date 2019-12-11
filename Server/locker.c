@@ -39,6 +39,11 @@ bool lock(pthread_mutex_t *m_mutex)
 	return pthread_mutex_lock( m_mutex ) == 0;
 }
 
+bool trylock(pthread_mutex_t *m_mutex)
+{
+	return pthread_mutex_trylock( m_mutex ) == 0;
+}
+
 bool unlock(pthread_mutex_t *m_mutex)
 {
 	return pthread_mutex_unlock( m_mutex ) == 0;
